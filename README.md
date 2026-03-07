@@ -56,7 +56,7 @@ A beautiful, feature-rich habit tracking application built with Angular 17, feat
 1. **Clone or navigate to the project directory:**
 
    ```bash
-   cd "c:\Users\HP\Desktop\PROJECTS\Habit Tracker"
+   cd "path-to-your-project"
    ```
 
 2. **Install dependencies:**
