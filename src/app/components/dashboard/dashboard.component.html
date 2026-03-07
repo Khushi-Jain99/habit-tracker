@@ -1,0 +1,247 @@
+<div class="dashboard-container">
+  <!-- Header Section -->
+  <div class="dashboard-header">
+    <h2 class="dashboard-title">
+      <span class="title-icon">📊</span>
+      Dashboard - {{ months[selectedMonth] }} {{ selectedYear }}
+    </h2>
+    
+    <div class="calendar-settings">
+      <mat-form-field appearance="outline" class="month-selector">
+        <mat-label>Month</mat-label>
+        <mat-select [(ngModel)]="selectedMonth" (selectionChange)="onMonthChange()">
+          <mat-option *ngFor="let month of months; let i = index" [value]="i">
+            {{ month }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+      
+      <mat-form-field appearance="outline" class="year-selector">
+        <mat-label>Year</mat-label>
+        <mat-select [(ngModel)]="selectedYear" (selectionChange)="onMonthChange()">
+          <mat-option *ngFor="let year of years" [value]="year">
+            {{ year }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+  </div>
+
+  <!-- Charts Section -->
+  <div class="charts-grid">
+    <mat-card class="chart-card daily-chart">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>show_chart</mat-icon>
+          Daily Progress
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="chart-container">
+          <canvas *ngIf="dailyProgressChart" 
+                  baseChart
+                  [data]="dailyProgressChart"
+                  [options]="dailyChartOptions"
+                  type="bar">
+          </canvas>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="chart-card weekly-chart">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>calendar_view_week</mat-icon>
+          Weekly Progress
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="chart-container">
+          <canvas *ngIf="weeklyProgressChart" 
+                  baseChart
+                  [data]="weeklyProgressChart"
+                  [options]="weeklyChartOptions"
+                  type="bar">
+          </canvas>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="chart-card overall-chart">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>pie_chart</mat-icon>
+          Overall Stats
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="chart-container">
+          <canvas *ngIf="overallStatsChart" 
+                  baseChart
+                  [data]="overallStatsChart"
+                  [options]="pieChartOptions"
+                  type="doughnut">
+          </canvas>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Stats Summary -->
+  <mat-card class="stats-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>analytics</mat-icon>
+        Progress Analytics
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="stats-grid">
+        <div class="stat-item goal">
+          <div class="stat-label">Goal</div>
+          <div class="stat-value">{{ overallGoal }}</div>
+        </div>
+        <div class="stat-item completed">
+          <div class="stat-label">Completed</div>
+          <div class="stat-value">{{ overallCompleted }}</div>
+        </div>
+        <div class="stat-item left">
+          <div class="stat-label">Left</div>
+          <div class="stat-value">{{ overallLeft }}</div>
+        </div>
+        <div class="stat-item percentage">
+          <div class="stat-label">Percentage</div>
+          <div class="stat-value">{{ overallPercentage }}%</div>
+          <mat-progress-bar 
+            mode="determinate" 
+            [value]="overallPercentage"
+            [color]="overallPercentage >= 80 ? 'primary' : 'accent'">
+          </mat-progress-bar>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Habits Grid -->
+  <mat-card class="habits-grid-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>grid_on</mat-icon>
+        My Habits - {{ months[selectedMonth] }}
+      </mat-card-title>
+      <button mat-raised-button color="primary" class="add-habit-btn" (click)="openAddHabitDialog()">
+        <mat-icon>add</mat-icon>
+        Add Habit
+      </button>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="habits-table-wrapper">
+        <table class="habits-table">
+          <thead>
+            <tr>
+              <th class="habit-name-col">Habit</th>
+              <th class="streak-col">🔥 Streak</th>
+              <th *ngFor="let day of daysInMonth" class="day-col" [class.weekend]="getWeekDay(day) === 'Su' || getWeekDay(day) === 'Sa'">
+                <div class="day-header">
+                  <span class="day-num">{{ day }}</span>
+                  <span class="day-name">{{ getWeekDay(day) }}</span>
+                </div>
+              </th>
+              <th class="actions-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let habit of habits" class="habit-row">
+              <td class="habit-name">
+                <span class="habit-icon" [style.background]="habit.color">{{ habit.icon }}</span>
+                <span class="habit-text">{{ habit.name }}</span>
+              </td>
+              <td class="streak-cell">
+                <span class="streak-badge">{{ getHabitStreak(habit.id) }}</span>
+              </td>
+              <td *ngFor="let day of daysInMonth" 
+                  class="day-cell"
+                  [class.weekend]="getWeekDay(day) === 'Su' || getWeekDay(day) === 'Sa'">
+                <button 
+                  class="checkbox-btn"
+                  [class.completed]="isCompleted(habit.id, day)"
+                  [style.--habit-color]="habit.color"
+                  (click)="toggleCompletion(habit.id, day)">
+                  <mat-icon *ngIf="isCompleted(habit.id, day)">check</mat-icon>
+                </button>
+              </td>
+              <td class="actions-cell">
+                <button mat-icon-button [matMenuTriggerFor]="menu" class="action-btn">
+                  <mat-icon>more_vert</mat-icon>
+                </button>
+                <mat-menu #menu="matMenu">
+                  <button mat-menu-item (click)="openEditHabitDialog(habit)">
+                    <mat-icon>edit</mat-icon>
+                    <span>Edit</span>
+                  </button>
+                  <button mat-menu-item (click)="deleteHabit(habit.id)" class="delete-btn">
+                    <mat-icon>delete</mat-icon>
+                    <span>Delete</span>
+                  </button>
+                </mat-menu>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Top Habits & Mood Tracker -->
+  <div class="bottom-grid">
+    <mat-card class="top-habits-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>emoji_events</mat-icon>
+          Top 5 Daily Habits
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="top-habits-list">
+          <div *ngFor="let item of topHabits; let i = index" class="top-habit-item">
+            <div class="habit-rank">{{ i + 1 }}</div>
+            <div class="habit-info">
+              <div class="habit-header">
+                <span class="habit-icon-small" [style.background]="item.habit.color">
+                  {{ item.habit.icon }}
+                </span>
+                <span class="habit-name-text">{{ item.habit.name }}</span>
+              </div>
+              <div class="habit-progress">
+                <mat-progress-bar 
+                  mode="determinate" 
+                  [value]="item.stats.completionRate">
+                </mat-progress-bar>
+                <span class="progress-text">{{ item.stats.completionRate.toFixed(0) }}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="mood-chart-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>sentiment_satisfied</mat-icon>
+          Mood & Motivation
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="chart-container">
+          <canvas *ngIf="moodChart" 
+                  baseChart
+                  [data]="moodChart"
+                  [options]="lineChartOptions"
+                  type="line">
+          </canvas>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>
