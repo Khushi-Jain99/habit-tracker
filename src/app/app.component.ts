@@ -1,6 +1,5 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterOutlet } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -13,7 +12,6 @@ import { DashboardComponent } from './components/dashboard/dashboard.component';
   standalone: true,
   imports: [
     CommonModule,
-    RouterOutlet,
     MatIconModule,
     MatButtonModule,
     MatToolbarModule,
