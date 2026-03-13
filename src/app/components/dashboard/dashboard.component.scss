@@ -3,12 +3,25 @@
   --text-main: #0f172a;
   --text-muted: #475569;
   --line: #d8e1ea;
+  --section-gap: 16px;
+  --card-radius: 18px;
+}
+
+:host-context(body.dark-theme) {
+  --bg-card: rgba(15, 23, 42, 0.9);
+  --text-main: #e2e8f0;
+  --text-muted: #94a3b8;
+  --line: rgba(148, 163, 184, 0.25);
 }
 
 .dashboard-container {
   display: grid;
-  gap: 18px;
+  gap: var(--section-gap);
   padding: 8px 0 24px;
+
+  section {
+    min-width: 0;
+  }
 }
 
 .hero {
@@ -18,7 +31,7 @@
   padding: 20px;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 16px;
 
   h2 {
@@ -37,16 +50,22 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 10px;
 
   .month-selector,
   .year-selector {
     width: 140px;
+    margin-bottom: -1.25em;
   }
 
   ::ng-deep .mat-mdc-text-field-wrapper {
     background: rgba(255, 255, 255, 0.95);
     border-radius: 12px;
+  }
+
+  ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+    display: none;
   }
 }
 
@@ -62,13 +81,18 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
+  align-items: stretch;
 }
 
 .kpi-card {
-  border-radius: 18px !important;
+  border-radius: var(--card-radius) !important;
   color: #f8fafc;
   padding: 16px;
   box-shadow: 0 10px 30px rgba(2, 6, 23, 0.2);
+  min-height: 132px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 
   .kpi-label {
     font-size: 12px;
@@ -99,11 +123,24 @@
   display: grid;
   gap: 14px;
   grid-template-columns: 1.1fr 1fr 1fr;
+  align-items: stretch;
 
   mat-card {
     background: var(--bg-card);
-    border-radius: 18px !important;
+    border-radius: var(--card-radius) !important;
     backdrop-filter: blur(8px);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+
+    ::ng-deep .mat-mdc-card-header {
+      padding: 16px 16px 0;
+    }
+
+    ::ng-deep .mat-mdc-card-content {
+      padding: 12px 16px 16px;
+      flex: 1;
+    }
 
     mat-card-title {
       display: flex;
@@ -139,6 +176,12 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 8px;
+
+  button {
+    width: 100%;
+    justify-content: flex-start;
+    min-height: 40px;
+  }
 }
 
 .integration-meta {
@@ -186,6 +229,7 @@
   &.empty {
     color: var(--text-muted);
     justify-content: center;
+    text-align: center;
   }
 }
 
@@ -193,26 +237,37 @@
   display: grid;
   gap: 14px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
 }
 
 .chart-card {
   background: var(--bg-card) !important;
-  border-radius: 18px !important;
+  border-radius: var(--card-radius) !important;
+  height: 100%;
+
+  ::ng-deep .mat-mdc-card-header {
+    padding: 16px 16px 0;
+  }
+
+  ::ng-deep .mat-mdc-card-content {
+    padding: 12px 16px 16px;
+  }
 
   mat-card-title {
     display: flex;
     align-items: center;
     gap: 8px;
+    margin: 0;
   }
 }
 
 .chart-container {
-  height: 230px;
+  height: 240px;
   position: relative;
 }
 
 .stats-strip mat-card {
-  border-radius: 18px !important;
+  border-radius: var(--card-radius) !important;
   padding: 14px;
   background: var(--bg-card);
 }
@@ -241,13 +296,22 @@
 
 .habits-grid-card mat-card {
   background: var(--bg-card);
-  border-radius: 18px !important;
+  border-radius: var(--card-radius) !important;
+
+  ::ng-deep .mat-mdc-card-header {
+    padding: 16px 16px 0;
+  }
+
+  ::ng-deep .mat-mdc-card-content {
+    padding: 12px 16px 16px;
+  }
 }
 
 .habits-table-wrapper {
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 14px;
+  max-width: 100%;
 }
 
 .habits-table {
@@ -263,7 +327,7 @@
   thead th {
     position: sticky;
     top: 0;
-    background: #f8fafc;
+    background: color-mix(in srgb, var(--bg-card), #f8fafc 65%);
     z-index: 8;
     font-size: 11px;
     text-transform: uppercase;
@@ -294,12 +358,13 @@
 
   tbody td {
     padding: 6px;
+    vertical-align: middle;
 
     &.habit-name {
       position: sticky;
       left: 0;
       z-index: 7;
-      background: #ffffff;
+      background: color-mix(in srgb, var(--bg-card), #ffffff 72%);
       display: flex;
       align-items: center;
       gap: 10px;
@@ -343,6 +408,7 @@
 
     &.actions-cell {
       text-align: center;
+      width: 56px;
     }
   }
 }
@@ -371,6 +437,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+  }
 
   &.completed {
     background: var(--habit-color, #14b8a6);
@@ -401,10 +477,20 @@
   display: grid;
   gap: 14px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
 
   mat-card {
     background: var(--bg-card);
-    border-radius: 18px !important;
+    border-radius: var(--card-radius) !important;
+    height: 100%;
+
+    ::ng-deep .mat-mdc-card-header {
+      padding: 16px 16px 0;
+    }
+
+    ::ng-deep .mat-mdc-card-content {
+      padding: 12px 16px 16px;
+    }
   }
 }
 
@@ -476,6 +562,12 @@
   }
 }
 
+.heatmap-card,
+.mood-chart-card,
+.top-habits-card {
+  min-height: 100%;
+}
+
 .heatmap-grid {
   display: grid;
   grid-template-columns: repeat(14, 1fr);
@@ -496,6 +588,14 @@
 }
 
 @media (max-width: 1180px) {
+  .dashboard-container {
+    gap: 14px;
+  }
+
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+
   .kpi-grid,
   .bottom-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -509,10 +609,16 @@
 @media (max-width: 860px) {
   .hero {
     flex-direction: column;
+    align-items: flex-start;
 
     h2 {
       font-size: 24px;
     }
+  }
+
+  .hero-controls {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .charts-grid,
@@ -525,5 +631,10 @@
   .hero-controls .month-selector,
   .hero-controls .year-selector {
     width: 100%;
+    margin-bottom: -1.25em;
+  }
+
+  .chart-container {
+    height: 210px;
   }
 }
