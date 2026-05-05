@@ -1,28 +1,17 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { Injectable, OnDestroy } from '@angular/core';
+import { BehaviorSubject, Subscription } from 'rxjs';
 import { Badge, DashboardInsights, GamificationStats, Habit, HabitBadge, HabitProgress } from '../models/habit.model';
+import { UserService } from './user.service';
 
 export interface CompletionResult {
   completed: boolean;
   pointsEarned: number;
 }
 
-interface HabitFlowStateV1 {
-  version: 1;
-  habits: Habit[];
-  gamification?: {
-    earnedBadges: Record<string, Badge>;
-  };
-  updatedAt: string;
-}
-
 @Injectable({
   providedIn: 'root'
 })
-export class HabitService {
-  private readonly STATE_KEY = 'habitflow_state_v1';
-  private readonly HABITS_KEY = 'habits_v3';
-  private readonly LEGACY_HABITS_KEY = 'habits_v2';
+export class HabitService implements OnDestroy {
 
   private habitsSubject = new BehaviorSubject<Habit[]>([]);
   habits$ = this.habitsSubject.asObservable();
@@ -43,73 +32,25 @@ export class HabitService {
   gamification$ = this.gamificationSubject.asObservable();
 
   private earnedBadges: Record<string, Badge> = {};
+  private userSub: Subscription;
 
-  constructor() {
-    this.loadFromStorage();
-    this.recomputeGamification();
+  constructor(private userService: UserService) {
+    this.userSub = this.userService.currentUser$.subscribe((user) => {
+      if (!user) {
+        this.earnedBadges = {};
+        this.habitsSubject.next([]);
+        this.resetGamification();
+        return;
+      }
+
+      this.earnedBadges = user.gamification?.earnedBadges ?? {};
+      this.habitsSubject.next(this.normalizeHabits(user.habits ?? []));
+      this.recomputeGamification();
+    });
   }
 
-  private loadFromStorage(): void {
-    const stateRaw = localStorage.getItem(this.STATE_KEY);
-    if (stateRaw) {
-      const state = JSON.parse(stateRaw) as HabitFlowStateV1;
-      this.earnedBadges = state.gamification?.earnedBadges ?? {};
-      this.habitsSubject.next(this.normalizeHabits(state.habits ?? []));
-      return;
-    }
-
-    const stored = localStorage.getItem(this.HABITS_KEY) ?? localStorage.getItem(this.LEGACY_HABITS_KEY);
-    if (stored) {
-      this.earnedBadges = {};
-      this.habitsSubject.next(this.normalizeHabits(JSON.parse(stored)));
-      // Migrate old storage format into the new structured state.
-      this.persistState();
-      return;
-    }
-
-    const today = new Date();
-    this.habitsSubject.next([
-      {
-        id: '1',
-        name: 'Read 20 minutes',
-        icon: '📚',
-        color: '#1f6feb',
-        goal: 20,
-        type: 'duration',
-        targetValue: 20,
-        unit: 'min',
-        frequencyPerWeek: 7,
-        weekDays: [0, 1, 2, 3, 4, 5, 6],
-        reminderTime: '20:00',
-        difficulty: 'easy',
-        frequencyType: 'daily',
-        category: 'Learning',
-        archived: false,
-        createdAt: today,
-        completedDates: []
-      },
-      {
-        id: '2',
-        name: 'Workout',
-        icon: '💪',
-        color: '#f97316',
-        goal: 16,
-        type: 'boolean',
-        targetValue: 1,
-        unit: 'session',
-        frequencyPerWeek: 4,
-        weekDays: [1, 2, 4, 6],
-        reminderTime: '18:00',
-        difficulty: 'medium',
-        frequencyType: 'custom',
-        category: 'Fitness',
-        archived: false,
-        createdAt: today,
-        completedDates: []
-      }
-    ]);
-
-    this.persistState();
+  ngOnDestroy(): void {
+    this.userSub.unsubscribe();
   }
 
   private normalizeHabits(rawHabits: any[]): Habit[] {
@@ -146,16 +87,41 @@ export class HabitService {
   }
 
   private persistState(): void {
-    const state: HabitFlowStateV1 = {
-      version: 1,
+    const current = this.userService.getCurrentUser();
+    if (!current) return;
+
+    const progressByHabit = this.getAllHabitProgress();
+    const totalPoints = this.calculateTotalPoints(progressByHabit);
+    const level = this.calculateLevel(totalPoints);
+    const streak = Math.max(0, ...progressByHabit.map((item) => item.currentStreak));
+
+    this.userService.updateCurrentUserData({
       habits: this.habitsSubject.value,
+      stats: {
+        xp: totalPoints,
+        level,
+        streak
+      },
       gamification: {
         earnedBadges: this.earnedBadges
-      },
-      updatedAt: new Date().toISOString()
-    };
+      }
+    });
+  }
 
-    localStorage.setItem(this.STATE_KEY, JSON.stringify(state));
+  private resetGamification(): void {
+    this.gamificationSubject.next({
+      totalPoints: 0,
+      todayPoints: 0,
+      level: 0,
+      levelProgressPercent: 0,
+      nextLevelPoints: 100,
+      dailyCompletionPercent: 0,
+      completedToday: 0,
+      dueToday: 0,
+      badges: [],
+      perfectDay: false,
+      perfectWeek: false
+    });
   }
 
   private toDateKey(dateInput: Date | string): string {
