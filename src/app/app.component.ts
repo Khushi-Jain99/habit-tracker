@@ -20,8 +20,7 @@ import { NotificationService } from './services/notification.service';
                 <span class="text-xl">🔥</span>
               </div>
               <div>
-                <h1 class="text-lg font-bold text-ink leading-tight">HabitFlow</h1>
-                <p class="text-xs text-muted">SaaS-grade consistency</p>
+                <h1 class="text-lg font-bold text-ink leading-tight">Habit Meter</h1>
               </div>
             </div>
 
