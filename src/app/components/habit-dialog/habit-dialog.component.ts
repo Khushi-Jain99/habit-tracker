@@ -35,108 +35,131 @@ interface DialogData {
       </h2>
 
       <mat-dialog-content>
-        <div class="grid-2">
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Habit Name</mat-label>
-            <input matInput [(ngModel)]="habitName" placeholder="e.g., Morning Exercise">
-          </mat-form-field>
+        <div class="dialog-shell">
+          <section class="form-card">
+            <div class="card-header">
+              <h3>Basic Info</h3>
+              <p>Define the habit name, type, and target.</p>
+            </div>
+            <div class="grid-2">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Habit Name</mat-label>
+                <input matInput [(ngModel)]="habitName" placeholder="e.g., Morning Exercise">
+              </mat-form-field>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Type</mat-label>
-            <mat-select [(ngModel)]="habitType">
-              <mat-option value="boolean">Binary (Done / Not done)</mat-option>
-              <mat-option value="count">Count (e.g., 8 glasses)</mat-option>
-              <mat-option value="duration">Duration (e.g., 20 min)</mat-option>
-            </mat-select>
-          </mat-form-field>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Type</mat-label>
+                <mat-select [(ngModel)]="habitType">
+                  <mat-option value="boolean">Binary (Done / Not done)</mat-option>
+                  <mat-option value="count">Count (e.g., 8 glasses)</mat-option>
+                  <mat-option value="duration">Duration (e.g., 20 min)</mat-option>
+                </mat-select>
+              </mat-form-field>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Target Value</mat-label>
-            <input matInput type="number" [(ngModel)]="targetValue" min="1">
-          </mat-form-field>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Target Value</mat-label>
+                <input matInput type="number" [(ngModel)]="targetValue" min="1">
+              </mat-form-field>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Unit</mat-label>
-            <input matInput [(ngModel)]="unit" placeholder="times, min, pages">
-          </mat-form-field>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Unit</mat-label>
+                <input matInput [(ngModel)]="unit" placeholder="times, min, pages">
+              </mat-form-field>
+            </div>
+          </section>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Frequency Type</mat-label>
-            <mat-select [(ngModel)]="frequencyType" (ngModelChange)="onFrequencyTypeChange($event)">
-              <mat-option value="daily">Daily</mat-option>
-              <mat-option value="weekly">Weekly</mat-option>
-              <mat-option value="custom">Custom frequency</mat-option>
-            </mat-select>
-          </mat-form-field>
+          <section class="form-card">
+            <div class="card-header">
+              <h3>Settings</h3>
+              <p>Set cadence, reminders, and category details.</p>
+            </div>
+            <div class="grid-2">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Frequency Type</mat-label>
+                <mat-select [(ngModel)]="frequencyType" (ngModelChange)="onFrequencyTypeChange($event)">
+                  <mat-option value="daily">Daily</mat-option>
+                  <mat-option value="weekly">Weekly</mat-option>
+                  <mat-option value="custom">Custom frequency</mat-option>
+                </mat-select>
+              </mat-form-field>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Reminder Time</mat-label>
-            <input matInput type="time" [(ngModel)]="reminderTime">
-          </mat-form-field>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Reminder Time</mat-label>
+                <input matInput type="time" [(ngModel)]="reminderTime">
+              </mat-form-field>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Category (Tag)</mat-label>
-            <mat-select [(ngModel)]="category">
-              <mat-option *ngFor="let c of categories" [value]="c">{{ c }}</mat-option>
-            </mat-select>
-          </mat-form-field>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Category (Tag)</mat-label>
+                <mat-select [(ngModel)]="category">
+                  <mat-option *ngFor="let c of categories" [value]="c">{{ c }}</mat-option>
+                </mat-select>
+              </mat-form-field>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Difficulty</mat-label>
-            <mat-select [(ngModel)]="difficulty">
-              <mat-option value="easy">Easy</mat-option>
-              <mat-option value="medium">Medium</mat-option>
-              <mat-option value="hard">Hard</mat-option>
-            </mat-select>
-          </mat-form-field>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Difficulty</mat-label>
+                <mat-select [(ngModel)]="difficulty">
+                  <mat-option value="easy">Easy</mat-option>
+                  <mat-option value="medium">Medium</mat-option>
+                  <mat-option value="hard">Hard</mat-option>
+                </mat-select>
+              </mat-form-field>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Monthly Goal (days)</mat-label>
-            <input matInput type="number" [(ngModel)]="habitGoal" min="1" max="31">
-          </mat-form-field>
-        </div>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Monthly Goal (days)</mat-label>
+                <input matInput type="number" [(ngModel)]="habitGoal" min="1" max="31">
+              </mat-form-field>
+            </div>
+          </section>
 
-        <div class="form-group">
-          <label class="section-label">Schedule (Weekdays)</label>
-          <div class="weekday-grid">
-            <button
-              *ngFor="let day of weekdays"
-              type="button"
-              class="weekday-btn"
-              [class.selected]="weekDays.includes(day.value)"
-              (click)="toggleDay(day.value)">
-              {{ day.label }}
-            </button>
-          </div>
-        </div>
+          <section class="form-card">
+            <div class="card-header">
+              <h3>Schedule</h3>
+              <p>Pick weekdays, icon, and color.</p>
+            </div>
 
-        <div class="form-group">
-          <label class="section-label">Choose an Icon</label>
-          <div class="icon-grid">
-            <button
-              *ngFor="let icon of icons"
-              type="button"
-              class="icon-btn"
-              [class.selected]="habitIcon === icon"
-              (click)="habitIcon = icon">
-              {{ icon }}
-            </button>
-          </div>
-        </div>
+            <div class="form-group">
+              <label class="section-label">Schedule (Weekdays)</label>
+              <div class="weekday-grid">
+                <button
+                  *ngFor="let day of weekdays"
+                  type="button"
+                  class="weekday-btn"
+                  [class.selected]="weekDays.includes(day.value)"
+                  (click)="toggleDay(day.value)">
+                  {{ day.label }}
+                </button>
+              </div>
+            </div>
 
-        <div class="form-group">
-          <label class="section-label">Choose a Color</label>
-          <div class="color-grid">
-            <button
-              *ngFor="let color of colors"
-              type="button"
-              class="color-btn"
-              [class.selected]="habitColor === color"
-              [style.background]="color"
-              (click)="habitColor = color">
-              <mat-icon *ngIf="habitColor === color">check</mat-icon>
-            </button>
-          </div>
+            <div class="form-group">
+              <label class="section-label">Choose an Icon</label>
+              <div class="icon-grid">
+                <button
+                  *ngFor="let icon of icons"
+                  type="button"
+                  class="icon-btn"
+                  [class.selected]="habitIcon === icon"
+                  (click)="habitIcon = icon">
+                  {{ icon }}
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="section-label">Choose a Color</label>
+              <div class="color-grid">
+                <button
+                  *ngFor="let color of colors"
+                  type="button"
+                  class="color-btn"
+                  [class.selected]="habitColor === color"
+                  [style.background]="color"
+                  (click)="habitColor = color">
+                  <mat-icon *ngIf="habitColor === color">check</mat-icon>
+                </button>
+              </div>
+            </div>
+          </section>
         </div>
       </mat-dialog-content>
 
@@ -149,26 +172,38 @@ interface DialogData {
     </div>
   `,
   styles: [`
-    .dialog-container { padding: 8px; min-width: 560px; }
-    h2 { display: flex; align-items: center; gap: 12px; margin: 0; padding: 16px; color: #0f766e; }
-    mat-dialog-content { padding: 0 24px 24px !important; max-height: 70vh; overflow-y: auto; }
-    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .dialog-container { padding: 10px 12px 6px; min-width: 640px; color: rgb(var(--color-text)); }
+    h2 { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; padding: 16px 16px 4px; font-size: 22px; font-weight: 800; color: rgb(var(--color-text)); }
+    mat-dialog-content { padding: 0 24px 28px !important; max-height: 72vh; overflow-y: auto; }
+    .dialog-shell { display: grid; gap: 18px; }
+    .form-card { background: rgb(var(--color-surface)); border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px; box-shadow: 0 10px 24px rgba(var(--color-shadow), 0.08); }
+    .card-header { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+    .card-header h3 { margin: 0; font-size: 15px; font-weight: 800; color: rgb(var(--color-text)); }
+    .card-header p { margin: 0; font-size: 12px; color: rgb(var(--color-muted)); }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
     .full-width { width: 100%; }
-    .form-group { margin-top: 18px; }
-    .section-label { display: block; margin-bottom: 10px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #475569; }
-    .weekday-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
-    .weekday-btn { border: 1px solid #cbd5e1; border-radius: 10px; height: 36px; background: #fff; cursor: pointer; font-weight: 600; }
-    .weekday-btn.selected { background: #0f766e; color: #fff; border-color: #0f766e; }
-    .icon-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
-    .icon-btn { width: 48px; height: 48px; border: 2px solid #e2e8f0; border-radius: 12px; background: white; font-size: 24px; cursor: pointer; }
-    .icon-btn.selected { border-color: #0f766e; background: #ecfeff; }
+    .form-group { margin-top: 16px; }
+    .section-label { display: block; margin-bottom: 10px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: rgb(var(--color-muted)); }
+    .weekday-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+    .weekday-btn { border: 1px solid rgb(var(--color-border)); border-radius: 999px; height: 38px; background: rgb(var(--color-surface-muted)); cursor: pointer; font-weight: 600; color: rgb(var(--color-text)); transition: all 0.2s ease; }
+    .weekday-btn:hover { border-color: rgb(var(--color-primary-500)); background: rgb(var(--color-surface)); }
+    .weekday-btn.selected { background: linear-gradient(135deg, rgb(var(--color-primary-500)), rgb(var(--color-primary-600))); color: #fff; border-color: transparent; box-shadow: 0 8px 16px rgba(var(--color-shadow), 0.12); }
+    .icon-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px; }
+    .icon-btn { width: 48px; height: 48px; border: 1px solid rgb(var(--color-border)); border-radius: 14px; background: rgb(var(--color-surface-muted)); font-size: 22px; cursor: pointer; transition: all 0.2s ease; }
+    .icon-btn:hover { border-color: rgb(var(--color-primary-500)); transform: translateY(-2px); }
+    .icon-btn.selected { border-color: rgb(var(--color-primary-500)); background: rgb(var(--color-surface)); box-shadow: 0 8px 16px rgba(var(--color-shadow), 0.12); }
     .color-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 10px; }
-    .color-btn { width: 34px; height: 34px; border: 2px solid transparent; border-radius: 999px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-    .color-btn.selected { border-color: #0f172a; }
-    mat-dialog-actions { padding: 16px 24px; display: flex; justify-content: flex-end; gap: 10px; }
+    .color-btn { width: 34px; height: 34px; border: 2px solid transparent; border-radius: 999px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; }
+    .color-btn:hover { transform: scale(1.05); }
+    .color-btn.selected { border-color: rgb(var(--color-text)); box-shadow: 0 6px 14px rgba(var(--color-shadow), 0.15); }
+    mat-dialog-actions { padding: 12px 24px 20px; display: flex; justify-content: flex-end; gap: 10px; }
+    mat-dialog-actions button[mat-button] { border: 1px solid rgb(var(--color-border)); border-radius: 999px; padding: 8px 18px; background: transparent; }
+    mat-dialog-actions button[mat-raised-button] { border-radius: 999px; padding: 8px 20px; box-shadow: 0 10px 20px rgba(var(--color-shadow), 0.15); }
+    mat-dialog-actions button[mat-raised-button]:hover { box-shadow: 0 12px 24px rgba(var(--color-shadow), 0.2); }
     @media (max-width: 720px) {
       .dialog-container { min-width: unset; width: 100%; }
-      .grid-2 { grid-template-columns: 1fr; }
+      .dialog-shell { gap: 14px; }
+      .grid-2 { grid-template-columns: 1fr; gap: 14px; }
       .icon-grid { grid-template-columns: repeat(6, 1fr); }
       .color-grid { grid-template-columns: repeat(7, 1fr); }
     }
