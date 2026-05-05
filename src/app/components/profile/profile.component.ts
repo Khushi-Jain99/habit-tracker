@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { Router } from '@angular/router';
 import { HabitService } from '../../services/habit.service';
-import { GamificationStats } from '../../models/habit.model';
+import { Badge, GamificationStats } from '../../models/habit.model';
 import { PreferencesService, PreferencesStateV1 } from '../../services/preferences.service';
 import { UserService } from '../../services/user.service';
 import { AuthService } from '../../services/auth.service';
@@ -35,6 +35,19 @@ export class ProfileComponent implements OnInit, OnDestroy {
   prefs: PreferencesStateV1 | null = null;
   currentUser: UserRecord | null = null;
   nameDraft = '';
+  totalHabits = 0;
+  completionRate = 0;
+  longestStreak = 0;
+  totalCompletedDays = 0;
+  allBadges: Badge[] = [
+    { id: 'beginner', label: 'Beginner', description: 'Reach a 3-day streak', icon: '🥉' },
+    { id: 'consistent', label: 'Consistent', description: 'Reach a 7-day streak', icon: '🥈' },
+    { id: 'master', label: 'Master', description: 'Reach a 30-day streak', icon: '🥇' },
+    { id: 'perfect_day', label: 'Perfect Day', description: 'Complete every habit due today', icon: '✨' },
+    { id: 'perfect_week', label: 'Perfect Week', description: 'Complete every habit due this week', icon: '💎' },
+    { id: 'streak_7', label: '7-day Streak', description: '7-day streak across habits', icon: '🔥' },
+    { id: 'streak_30', label: '30-day Streak', description: '30-day streak across habits', icon: '🏆' }
+  ];
   private subscriptions: Subscription[] = [];
 
   constructor(
@@ -47,7 +60,19 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.subscriptions.push(
-      this.habitService.gamification$.subscribe((s) => (this.stats = s))
+      this.habitService.gamification$.subscribe((s) => {
+        this.stats = s;
+        this.completionRate = s.dailyCompletionPercent;
+      })
+    );
+
+    this.subscriptions.push(
+      this.habitService.habits$.subscribe((habits) => {
+        this.totalHabits = habits.filter((habit) => !habit.archived).length;
+        const progress = this.habitService.getAllHabitProgress();
+        this.longestStreak = Math.max(0, ...progress.map((item) => item.longestStreak));
+        this.totalCompletedDays = progress.reduce((sum, item) => sum + item.totalCompletions, 0);
+      })
     );
 
     this.subscriptions.push(
@@ -82,6 +107,10 @@ export class ProfileComponent implements OnInit, OnDestroy {
   toggleSound(): void {
     const next = !(this.prefs?.sound.enabled ?? true);
     this.preferencesService.setSoundEnabled(next);
+  }
+
+  isBadgeUnlocked(badge: Badge): boolean {
+    return this.stats.badges.some((earned) => earned.id === badge.id);
   }
 
   saveName(): void {
