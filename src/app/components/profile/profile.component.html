@@ -1,0 +1,114 @@
+<div class="space-y-6 animate-fade-in">
+  <section class="bg-surface p-6 rounded-3xl border border-line shadow-sm">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h2 class="text-2xl font-black text-ink">Profile</h2>
+        <p class="text-sm text-muted mt-1">Your progress, preferences, and achievements.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 bg-surface p-6 rounded-3xl border border-line shadow-sm">
+      <h3 class="text-sm font-bold text-muted uppercase tracking-wider">Level Progress</h3>
+      <div class="mt-4 flex items-end justify-between gap-4">
+        <div>
+          <div class="text-4xl font-black text-primary-600">Lv {{ stats.level }}</div>
+          <div class="text-sm text-muted mt-1">
+            {{ stats.totalPoints }} XP • Next at {{ stats.nextLevelPoints }} XP
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-3xl font-black text-ink">{{ stats.levelProgressPercent }}%</div>
+          <div class="text-xs text-muted mt-1">to next level</div>
+        </div>
+      </div>
+
+      <div class="h-4 w-full bg-surface-muted rounded-full overflow-hidden mt-4">
+        <div
+          class="h-full bg-primary-600 transition-all duration-700 ease-out"
+          [style.width.%]="stats.levelProgressPercent">
+        </div>
+      </div>
+
+      <div class="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="p-4 rounded-2xl bg-surface-muted border border-line">
+          <div class="text-[11px] uppercase font-bold text-muted">Today XP</div>
+          <div class="text-3xl font-black text-primary-600 mt-1">+{{ stats.todayPoints }}</div>
+        </div>
+        <div class="p-4 rounded-2xl bg-surface-muted border border-line">
+          <div class="text-[11px] uppercase font-bold text-muted">Perfectness</div>
+          <div class="text-lg font-black text-ink mt-1">
+            <span *ngIf="stats.perfectDay" class="text-emerald-500">✨ Perfect Day</span>
+            <span *ngIf="!stats.perfectDay" class="text-muted">—</span>
+          </div>
+          <div class="text-lg font-black text-ink mt-1">
+            <span *ngIf="stats.perfectWeek" class="text-cyan-400">💎 Perfect Week</span>
+            <span *ngIf="!stats.perfectWeek" class="text-muted">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-surface p-6 rounded-3xl border border-line shadow-sm">
+      <h3 class="text-sm font-bold text-muted uppercase tracking-wider">Achievements</h3>
+      <div class="mt-4 flex flex-wrap gap-3">
+        <div *ngFor="let b of stats.badges"
+             class="flex items-center gap-3 bg-surface-muted px-4 py-3 rounded-2xl border border-line">
+          <span class="text-2xl">{{ b.icon }}</span>
+          <div>
+            <div class="text-sm font-bold text-ink">{{ b.label }}</div>
+            <div class="text-xs text-muted">{{ b.description }}</div>
+          </div>
+        </div>
+        <div *ngIf="stats.badges.length === 0" class="text-sm text-muted">
+          No achievements yet. Complete more habits to earn badges.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="bg-surface p-6 rounded-3xl border border-line shadow-sm">
+    <h3 class="text-sm font-bold text-muted uppercase tracking-wider">Notifications & Sound</h3>
+    <div class="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="p-4 rounded-2xl bg-surface-muted border border-line">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="text-sm font-bold text-ink">Browser Reminders</div>
+            <div class="text-xs text-muted mt-1">
+              Basic notifications when the app is open.
+            </div>
+          </div>
+          <button
+            type="button"
+            (click)="requestNotifications()"
+            class="px-4 py-2 rounded-xl bg-primary-600 text-white font-bold hover:bg-primary-700 transition-colors">
+            Enable
+          </button>
+        </div>
+
+        <div class="mt-4 text-xs text-muted">
+          Permission: <span class="font-bold">{{ prefs?.notifications?.permission }}</span>
+        </div>
+      </div>
+
+      <div class="p-4 rounded-2xl bg-surface-muted border border-line">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="text-sm font-bold text-ink">Sound</div>
+            <div class="text-xs text-muted mt-1">
+              Optional micro-sounds for completions and reminders.
+            </div>
+          </div>
+          <button
+            type="button"
+            (click)="toggleSound()"
+            class="px-4 py-2 rounded-xl bg-primary-600 text-white font-bold hover:bg-primary-700 transition-colors">
+            {{ (prefs?.sound?.enabled ?? true) ? 'On' : 'Off' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+

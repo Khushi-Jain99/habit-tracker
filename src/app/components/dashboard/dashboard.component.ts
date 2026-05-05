@@ -1,449 +1,253 @@
-import { Component, OnInit } from '@angular/core';
+import { AfterViewInit, Component, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatCardModule } from '@angular/material/card';
-import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
-import { MatSelectModule } from '@angular/material/select';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatDialogModule, MatDialog } from '@angular/material/dialog';
-import { MatMenuModule } from '@angular/material/menu';
-import { FormsModule } from '@angular/forms';
-import { NgChartsModule } from 'ng2-charts';
-import { ChartConfiguration } from 'chart.js';
+import { Router } from '@angular/router';
+import { Subscription } from 'rxjs';
+import { animateMini } from 'motion';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { HabitService } from '../../services/habit.service';
-import { ThemeService } from '../../services/theme.service';
-import {
-  DashboardInsights,
-  GamificationStats,
-  Habit,
-  HabitStats,
-  IntegrationStatus
-} from '../../models/habit.model';
+import { DashboardInsights, GamificationStats, Habit, HabitProgress } from '../../models/habit.model';
+import { animateFadeScale, animatePageIn, animatePress } from '../../utils/motion.util';
+import { ProgressRingComponent } from '../../shared/components/progress-ring/progress-ring.component';
+import confetti from 'canvas-confetti';
 import { HabitDialogComponent } from '../habit-dialog/habit-dialog.component';
+
+interface PointsPopup {
+  id: number;
+  habitId: string;
+  value: number;
+}
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [
-    CommonModule,
-    MatCardModule,
-    MatIconModule,
-    MatButtonModule,
-    MatSelectModule,
-    MatFormFieldModule,
-    MatProgressBarModule,
-    MatDialogModule,
-    MatMenuModule,
-    FormsModule,
-    NgChartsModule
-  ],
+  imports: [CommonModule, ProgressRingComponent, MatDialogModule, HabitDialogComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements AfterViewInit, OnDestroy {
   habits: Habit[] = [];
-  selectedMonth: number = new Date().getMonth();
-  selectedYear: number = new Date().getFullYear();
+  todayHabits: Habit[] = [];
+  progressByHabit = new Map<string, HabitProgress>();
 
-  months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
+  stats: GamificationStats = {
+    totalPoints: 0,
+    todayPoints: 0,
+    level: 0,
+    levelProgressPercent: 0,
+    nextLevelPoints: 100,
+    dailyCompletionPercent: 0,
+    completedToday: 0,
+    dueToday: 0,
+    badges: [],
+    perfectDay: false,
+    perfectWeek: false
+  };
 
-  years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i);
-  daysInMonth: number[] = [];
-  weekDays = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+  activeFilter: 'all' | 'daily' | 'weekly' | 'custom' = 'all';
 
-  dailyProgressChart: ChartConfiguration['data'] | null = null;
-  weeklyProgressChart: ChartConfiguration['data'] | null = null;
-  overallStatsChart: ChartConfiguration['data'] | null = null;
-  moodChart: ChartConfiguration['data'] | null = null;
-  weekdayChart: ChartConfiguration['data'] | null = null;
+  pointsPopups: PointsPopup[] = [];
+  private popupId = 0;
+  private subscriptions: Subscription[] = [];
 
-  dailyChartOptions: ChartConfiguration['options'];
-  weeklyChartOptions: ChartConfiguration['options'];
-  pieChartOptions: ChartConfiguration['options'];
-  lineChartOptions: ChartConfiguration['options'];
-
-  overallGoal = 0;
-  overallCompleted = 0;
-  overallLeft = 0;
-  overallPercentage = 0;
-
-  topHabits: Array<{ habit: Habit; stats: HabitStats }> = [];
-  insights: DashboardInsights | null = null;
-  gamification: GamificationStats | null = null;
-  integrations: IntegrationStatus | null = null;
-  dueToday = 0;
-  heatmap: Array<{ date: string; score: number }> = [];
+  weeklyStats: { date: string; completionRate: number }[] = [];
+  insights?: DashboardInsights;
+  private confettiDateKey?: string;
 
   constructor(
     private habitService: HabitService,
-    private dialog: MatDialog,
-    private themeService: ThemeService
+    private router: Router,
+    private dialog: MatDialog
   ) {
-    this.initializeChartOptions();
-  }
+    this.subscriptions.push(
+      this.habitService.habits$.subscribe((habits) => {
+        this.habits = habits.filter((habit) => !habit.archived);
+        this.todayHabits = this.habitService.getDueHabitsForDate(new Date());
+        this.rebuildProgress();
+      })
+    );
 
-  ngOnInit(): void {
-    this.habitService.habits$.subscribe((habits) => {
-      this.habits = habits.filter((habit) => !habit.archived);
-      this.refreshDashboard();
-    });
+    this.subscriptions.push(
+      this.habitService.gamification$.subscribe((stats) => {
+        this.stats = stats;
+        this.animateDailyProgress();
+        this.weeklyStats = this.habitService.getWeeklyStats();
+        this.insights = this.habitService.getWeekendMissInsight();
 
-    this.habitService.gamification$.subscribe((stats) => {
-      this.gamification = stats;
-    });
-
-    this.habitService.integrationStatus$.subscribe((status) => {
-      this.integrations = status;
-    });
-  }
-
-  private refreshDashboard(): void {
-    this.updateCalendar();
-    this.updateCharts();
-    this.updateOverallStats();
-    this.updateTopHabits();
-    this.insights = this.habitService.getDashboardInsights();
-    this.heatmap = this.habitService.getLast28DayHeatmap();
-    this.dueToday = this.habitService.getDueHabitsForDate(new Date()).length;
-  }
-
-  private initializeChartOptions(): void {
-    const isDark = this.themeService.isDarkMode();
-    const textColor = isDark ? '#e2e8f0' : '#0f172a';
-    const gridColor = isDark ? 'rgba(148, 163, 184, 0.2)' : 'rgba(15, 23, 42, 0.08)';
-
-    this.dailyChartOptions = {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          max: 100,
-          ticks: { color: textColor },
-          grid: { color: gridColor }
-        },
-        x: {
-          ticks: { color: textColor },
-          grid: { display: false }
+        const todayKey = new Date().toISOString().slice(0, 10);
+        if (this.stats.perfectDay && this.stats.dueToday > 0 && this.stats.completedToday === this.stats.dueToday && this.confettiDateKey !== todayKey) {
+          this.confettiDateKey = todayKey;
+          this.launchConfetti();
         }
-      }
-    };
-
-    this.weeklyChartOptions = {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          max: 100,
-          ticks: { color: textColor },
-          grid: { color: gridColor }
-        },
-        x: {
-          ticks: { color: textColor },
-          grid: { display: false }
-        }
-      }
-    };
-
-    this.pieChartOptions = {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'right',
-          labels: { color: textColor }
-        }
-      }
-    };
-
-    this.lineChartOptions = {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'top',
-          labels: { color: textColor }
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          max: 100,
-          ticks: { color: textColor },
-          grid: { color: gridColor }
-        },
-        x: {
-          ticks: { color: textColor, maxRotation: 45 },
-          grid: { display: false }
-        }
-      }
-    };
+      })
+    );
   }
 
-  updateCalendar(): void {
-    this.daysInMonth = [];
-    const days = new Date(this.selectedYear, this.selectedMonth + 1, 0).getDate();
-    for (let i = 1; i <= days; i++) {
-      this.daysInMonth.push(i);
-    }
+  ngAfterViewInit(): void {
+    animatePageIn('.dashboard-page');
+    this.animateDailyProgress();
   }
 
-  onMonthChange(): void {
-    this.refreshDashboard();
+  ngOnDestroy(): void {
+    this.subscriptions.forEach((sub) => sub.unsubscribe());
   }
 
-  toggleCompletion(habitId: string, day: number): void {
-    const date = new Date(this.selectedYear, this.selectedMonth, day);
-    const dateStr = date.toISOString().split('T')[0];
-    this.habitService.toggleHabitCompletion(habitId, dateStr);
-  }
-
-  recoverWithShield(habitId: string, day: number): void {
-    const date = new Date(this.selectedYear, this.selectedMonth, day);
-    const dateStr = date.toISOString().split('T')[0];
-    this.habitService.useStreakShield(habitId, dateStr);
-    this.refreshDashboard();
-  }
-
-  isCompleted(habitId: string, day: number): boolean {
-    const date = new Date(this.selectedYear, this.selectedMonth, day);
-    const dateStr = date.toISOString().split('T')[0];
-    return this.habitService.isHabitCompleted(habitId, dateStr);
-  }
-
-  isScheduled(habit: Habit, day: number): boolean {
-    const date = new Date(this.selectedYear, this.selectedMonth, day);
-    return this.habitService.isHabitScheduledForDay(habit, date);
-  }
-
-  getWeekDay(day: number): string {
-    const date = new Date(this.selectedYear, this.selectedMonth, day);
-    return this.weekDays[date.getDay()];
-  }
-
-  private updateCharts(): void {
-    this.updateDailyProgressChart();
-    this.updateWeeklyProgressChart();
-    this.updateOverallStatsChart();
-    this.updateMoodChart();
-    this.updateWeekdayChart();
-  }
-
-  private updateDailyProgressChart(): void {
-    const labels: string[] = [];
-    const data: number[] = [];
-
-    for (let day = 1; day <= Math.min(31, this.daysInMonth.length); day++) {
-      labels.push(day.toString());
-      const completedCount = this.habits.filter((h) => this.isCompleted(h.id, day)).length;
-      const dueCount = this.habits.filter((h) => this.isScheduled(h, day)).length;
-      const percentage = dueCount > 0 ? (completedCount / dueCount) * 100 : 0;
-      data.push(Math.round(percentage));
-    }
-
-    this.dailyProgressChart = {
-      labels,
-      datasets: [{
-        label: 'Daily Progress %',
-        data,
-        backgroundColor: 'rgba(14, 165, 233, 0.6)',
-        borderColor: 'rgba(14, 165, 233, 1)',
-        borderWidth: 2,
-        borderRadius: 6
-      }]
-    };
-  }
-
-  private updateWeeklyProgressChart(): void {
-    const weeks = Math.ceil(this.daysInMonth.length / 7);
-    const labels: string[] = [];
-    const data: number[] = [];
-
-    for (let week = 0; week < weeks; week++) {
-      labels.push(`Week ${week + 1}`);
-      const startDay = week * 7 + 1;
-      const endDay = Math.min((week + 1) * 7, this.daysInMonth.length);
-
-      let weekTotal = 0;
-      let weekCount = 0;
-
-      for (let day = startDay; day <= endDay; day++) {
-        const completedCount = this.habits.filter((h) => this.isCompleted(h.id, day)).length;
-        const dueCount = this.habits.filter((h) => this.isScheduled(h, day)).length;
-        weekTotal += completedCount;
-        weekCount += dueCount;
-      }
-
-      const percentage = weekCount > 0 ? (weekTotal / weekCount) * 100 : 0;
-      data.push(Math.round(percentage));
-    }
-
-    this.weeklyProgressChart = {
-      labels,
-      datasets: [{
-        label: 'Weekly Progress %',
-        data,
-        backgroundColor: 'rgba(20, 184, 166, 0.65)',
-        borderColor: 'rgba(20, 184, 166, 1)',
-        borderWidth: 2,
-        borderRadius: 6
-      }]
-    };
-  }
-
-  private updateOverallStatsChart(): void {
-    this.overallStatsChart = {
-      labels: ['Completed', 'Remaining'],
-      datasets: [{
-        data: [this.overallCompleted, this.overallLeft],
-        backgroundColor: [
-          'rgba(34, 197, 94, 0.8)',
-          'rgba(148, 163, 184, 0.35)'
-        ],
-        borderColor: [
-          'rgba(34, 197, 94, 1)',
-          'rgba(148, 163, 184, 0.65)'
-        ],
-        borderWidth: 2
-      }]
-    };
-  }
-
-  private updateMoodChart(): void {
-    const moodEntries = this.habitService.getMoodEntries().slice(-30);
-
-    this.moodChart = {
-      labels: moodEntries.map((e) => {
-        const date = new Date(e.date);
-        return `${date.getMonth() + 1}/${date.getDate()}`;
-      }),
-      datasets: [
-        {
-          label: 'Mood',
-          data: moodEntries.map((e) => e.mood * 10),
-          borderColor: 'rgba(249, 115, 22, 1)',
-          backgroundColor: 'rgba(249, 115, 22, 0.1)',
-          tension: 0.4,
-          fill: true
-        },
-        {
-          label: 'Motivation',
-          data: moodEntries.map((e) => e.motivation * 10),
-          borderColor: 'rgba(59, 130, 246, 1)',
-          backgroundColor: 'rgba(59, 130, 246, 0.08)',
-          tension: 0.4,
-          fill: true
-        }
-      ]
-    };
-  }
-
-  private updateWeekdayChart(): void {
-    const data = this.habitService.getWeekdayCompletionDistribution(this.selectedMonth, this.selectedYear);
-    this.weekdayChart = {
-      labels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-      datasets: [{
-        label: 'Completion by Weekday %',
-        data,
-        borderColor: 'rgba(99, 102, 241, 1)',
-        backgroundColor: 'rgba(99, 102, 241, 0.12)',
-        tension: 0.3,
-        fill: true
-      }]
-    };
-  }
-
-  private updateOverallStats(): void {
-    this.overallGoal = 0;
-    this.overallCompleted = 0;
-
+  private rebuildProgress(): void {
+    const map = new Map<string, HabitProgress>();
     this.habits.forEach((habit) => {
-      this.overallGoal += habit.goal;
-      const stats = this.habitService.getHabitStats(habit.id, this.selectedMonth, this.selectedYear);
-      this.overallCompleted += stats.completedCount;
+      map.set(habit.id, this.habitService.getHabitProgress(habit.id));
     });
-
-    this.overallLeft = Math.max(0, this.overallGoal - this.overallCompleted);
-    this.overallPercentage = this.overallGoal > 0
-      ? Math.round((this.overallCompleted / this.overallGoal) * 100)
-      : 0;
+    this.progressByHabit = map;
   }
 
-  private updateTopHabits(): void {
-    const habitsWithStats = this.habits.map((habit) => ({
-      habit,
-      stats: this.habitService.getHabitStats(habit.id, this.selectedMonth, this.selectedYear)
-    }));
-
-    this.topHabits = habitsWithStats
-      .sort((a, b) => b.stats.completionRate - a.stats.completionRate)
-      .slice(0, 5);
-  }
-
-  getHabitStreak(habitId: string): number {
-    return this.habitService.getHabitStats(habitId, this.selectedMonth, this.selectedYear).currentStreak;
-  }
-
-  openAddHabitDialog(): void {
-    const dialogRef = this.dialog.open(HabitDialogComponent, {
-      width: '720px',
-      data: { mode: 'add' }
-    });
-
-    dialogRef.afterClosed().subscribe((result) => {
-      if (result) {
-        this.habitService.addHabit(result);
+  private animateDailyProgress(): void {
+    requestAnimationFrame(() => {
+      const progressFill = document.querySelector('.daily-progress-fill');
+      if (progressFill) {
+        animateMini(progressFill, { width: `${this.stats.dailyCompletionPercent}%` }, { duration: 0.55, ease: 'easeOut' });
       }
     });
   }
 
-  openEditHabitDialog(habit: Habit): void {
-    const dialogRef = this.dialog.open(HabitDialogComponent, {
-      width: '720px',
-      data: { habit, mode: 'edit' }
-    });
-
-    dialogRef.afterClosed().subscribe((result) => {
-      if (result) {
-        this.habitService.updateHabit(habit.id, result);
-      }
-    });
+  getProgress(habitId: string): HabitProgress {
+    return this.progressByHabit.get(habitId) ?? {
+      habitId,
+      currentStreak: 0,
+      longestStreak: 0,
+      badge: 'None',
+      totalCompletions: 0
+    };
   }
 
-  deleteHabit(habitId: string): void {
-    if (confirm('Delete this habit permanently?')) {
+  get filteredHabits(): Habit[] {
+    if (this.activeFilter === 'all') return this.todayHabits;
+    return this.todayHabits.filter((h) => h.frequencyType === this.activeFilter);
+  }
+
+  setFilter(filter: 'all' | 'daily' | 'weekly' | 'custom'): void {
+    this.activeFilter = filter;
+  }
+
+  getBadgeTone(badge: string): string {
+    if (badge === 'Master') return 'bg-amber-100 text-amber-700';
+    if (badge === 'Consistent') return 'bg-blue-100 text-blue-700';
+    if (badge === 'Beginner') return 'bg-emerald-100 text-emerald-700';
+    return 'bg-surface-muted text-muted';
+  }
+
+  private getStreakToneFromCount(streak: number): 'primary' | 'emerald' | 'amber' | 'slate' {
+    if (streak >= 30) return 'amber';
+    if (streak >= 7) return 'emerald';
+    if (streak > 0) return 'primary';
+    return 'slate';
+  }
+
+  getStreakPercent(habitId: string): number {
+    const streak = this.getProgress(habitId).currentStreak;
+    if (streak <= 0) return 0;
+    if (streak >= 7) return 100;
+    return (streak / 7) * 100;
+  }
+
+  getStreakCaption(habitId: string): string {
+    const streak = this.getProgress(habitId).currentStreak;
+    if (streak >= 7) return '7+ days';
+    return 'to 7';
+  }
+
+  getStreakTone(habitId: string): 'primary' | 'emerald' | 'amber' | 'slate' {
+    const streak = this.getProgress(habitId).currentStreak;
+    return this.getStreakToneFromCount(streak);
+  }
+
+  onCompleteHabit(habit: Habit, event: MouseEvent): void {
+    const button = event.currentTarget as HTMLElement | null;
+    if (button) {
+      animatePress(button);
+    }
+
+    const result = this.habitService.toggleHabitCompletion(habit.id, new Date());
+
+    if (result.completed) {
+      if (button) {
+        const row = button.closest('.habit-item');
+        if (row) {
+          animateFadeScale(row);
+        }
+      }
+
+      this.pointsPopups = [
+        ...this.pointsPopups,
+        {
+          id: ++this.popupId,
+          habitId: habit.id,
+          value: result.pointsEarned
+        }
+      ];
+
+      setTimeout(() => {
+        this.pointsPopups = this.pointsPopups.filter((popup) => popup.id !== this.popupId);
+      }, 1100);
+    }
+  }
+
+  isCompletedToday(habitId: string): boolean {
+    return this.habitService.isHabitCompleted(habitId, new Date());
+  }
+
+  goToAddHabit(event: MouseEvent): void {
+    const target = event.currentTarget as HTMLElement | null;
+    if (target) {
+      animatePress(target);
+    }
+    this.router.navigateByUrl('/add-habit');
+  }
+
+  onDeleteHabit(habitId: string, event: MouseEvent): void {
+    event.stopPropagation();
+    if (confirm('Are you sure you want to delete this habit?')) {
       this.habitService.deleteHabit(habitId);
     }
   }
 
-  archiveHabit(habitId: string): void {
-    this.habitService.archiveHabit(habitId);
+  editHabit(habit: Habit): void {
+    const dialogRef = this.dialog.open(HabitDialogComponent, {
+      data: { habit, mode: 'edit' as const }
+    });
+
+    this.subscriptions.push(
+      dialogRef.afterClosed().subscribe((result) => {
+        if (!result) return;
+        this.habitService.updateHabit(habit.id, result);
+      })
+    );
   }
 
-  async enableNotifications(): Promise<void> {
-    await this.habitService.enableBrowserNotifications();
+  trackHabit(_: number, habit: Habit): string {
+    return habit.id;
   }
 
-  sendReminderPreview(): void {
-    this.habitService.sendDailyReminderPreview();
+  private launchConfetti(): void {
+    // Uses `canvas-confetti` which auto-renders to a canvas overlay.
+    confetti({
+      particleCount: 240,
+      spread: 85,
+      startVelocity: 40,
+      gravity: 0.9,
+      origin: { y: 0.65 }
+    });
+    confetti({
+      particleCount: 140,
+      spread: 60,
+      startVelocity: 25,
+      gravity: 1.05,
+      origin: { y: 0.9 }
+    });
   }
 
-  exportCalendar(): void {
-    this.habitService.exportCalendarICS();
-  }
-
-  getHeatClass(score: number): string {
-    return `h-${score}`;
+  getDayLabel(dateKey: string): string {
+    const [y, m, d] = dateKey.split('-').map((v) => Number(v));
+    if (!y || !m || !d) return dateKey;
+    const dt = new Date(y, m - 1, d);
+    return dt.toLocaleDateString(undefined, { weekday: 'short' });
   }
 }

@@ -61,13 +61,24 @@ interface DialogData {
           </mat-form-field>
 
           <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Weekly Frequency</mat-label>
-            <input matInput type="number" [(ngModel)]="frequencyPerWeek" min="1" max="7">
+            <mat-label>Frequency Type</mat-label>
+            <mat-select [(ngModel)]="frequencyType" (ngModelChange)="onFrequencyTypeChange($event)">
+              <mat-option value="daily">Daily</mat-option>
+              <mat-option value="weekly">Weekly</mat-option>
+              <mat-option value="custom">Custom frequency</mat-option>
+            </mat-select>
           </mat-form-field>
 
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Reminder Time</mat-label>
             <input matInput type="time" [(ngModel)]="reminderTime">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Category (Tag)</mat-label>
+            <mat-select [(ngModel)]="category">
+              <mat-option *ngFor="let c of categories" [value]="c">{{ c }}</mat-option>
+            </mat-select>
           </mat-form-field>
 
           <mat-form-field appearance="outline" class="full-width">
@@ -174,6 +185,8 @@ export class HabitDialogComponent {
   frequencyPerWeek = 5;
   reminderTime = '08:30';
   difficulty: 'easy' | 'medium' | 'hard' = 'medium';
+  frequencyType: 'daily' | 'weekly' | 'custom' = 'daily';
+  category = 'General';
   weekDays: number[] = [1, 2, 3, 4, 5, 6, 0];
 
   weekdays = [
@@ -199,6 +212,8 @@ export class HabitDialogComponent {
     '#d946ef', '#ec4899', '#f43f5e', '#64748b', '#334155', '#0f172a'
   ];
 
+  readonly categories: string[] = ['General', 'Fitness', 'Health', 'Learning', 'Productivity', 'Mindfulness'];
+
   constructor(
     public dialogRef: MatDialogRef<HabitDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: DialogData
@@ -215,15 +230,50 @@ export class HabitDialogComponent {
       this.reminderTime = data.habit.reminderTime ?? '08:30';
       this.difficulty = data.habit.difficulty;
       this.weekDays = [...data.habit.weekDays];
+      this.frequencyType = data.habit.frequencyType;
+      this.category = data.habit.category;
     }
+
+    this.syncFrequencyFromWeekdays();
+  }
+
+  onFrequencyTypeChange(next: 'daily' | 'weekly' | 'custom'): void {
+    this.frequencyType = next;
+
+    if (next === 'daily') {
+      this.weekDays = [0, 1, 2, 3, 4, 5, 6];
+    } else if (next === 'weekly') {
+      this.weekDays = [1];
+    }
+
+    this.syncFrequencyFromWeekdays();
+  }
+
+  private syncFrequencyFromWeekdays(): void {
+    this.weekDays = Array.from(new Set(this.weekDays)).sort((a, b) => a - b);
+    this.frequencyPerWeek = Math.max(1, Math.min(7, this.weekDays.length));
   }
 
   toggleDay(day: number): void {
+    if (this.frequencyType === 'daily') {
+      this.weekDays = [0, 1, 2, 3, 4, 5, 6];
+      this.syncFrequencyFromWeekdays();
+      return;
+    }
+
+    if (this.frequencyType === 'weekly') {
+      this.weekDays = [day];
+      this.syncFrequencyFromWeekdays();
+      return;
+    }
+
     if (this.weekDays.includes(day)) {
       this.weekDays = this.weekDays.filter((x) => x !== day);
     } else {
       this.weekDays = [...this.weekDays, day].sort((a, b) => a - b);
     }
+
+    this.syncFrequencyFromWeekdays();
   }
 
   isValid(): boolean {
@@ -233,6 +283,7 @@ export class HabitDialogComponent {
       && this.targetValue > 0
       && this.frequencyPerWeek > 0
       && this.frequencyPerWeek <= 7
+      && this.category.trim().length > 0
       && this.weekDays.length > 0;
   }
 
@@ -252,7 +303,9 @@ export class HabitDialogComponent {
       frequencyPerWeek: this.frequencyPerWeek,
       weekDays: this.weekDays,
       reminderTime: this.reminderTime,
-      difficulty: this.difficulty
+      difficulty: this.difficulty,
+      frequencyType: this.frequencyType,
+      category: this.category.trim()
     });
   }
 

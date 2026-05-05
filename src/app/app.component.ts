@@ -1,171 +1,126 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
-import { MatToolbarModule } from '@angular/material/toolbar';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { ThemeService } from './services/theme.service';
-import { DashboardComponent } from './components/dashboard/dashboard.component';
+import { NavigationEnd, Router, RouterModule } from '@angular/router';
+import { Subscription, filter } from 'rxjs';
+import { animateMini } from 'motion';
+import { NotificationService } from './services/notification.service';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [
-    CommonModule,
-    MatIconModule,
-    MatButtonModule,
-    MatToolbarModule,
-    MatSlideToggleModule,
-    DashboardComponent
-  ],
+  imports: [CommonModule, RouterModule],
   template: `
-    <div class="app-container" [class.dark-theme]="isDarkMode">
-      <mat-toolbar class="toolbar">
-        <div class="toolbar-content">
-          <div class="logo-section">
-            <span class="logo-icon">✨</span>
-            <h1>Habit Tracker</h1>
-          </div>
-          <div class="toolbar-actions">
-            <mat-slide-toggle 
-              [checked]="isDarkMode" 
-              (change)="toggleTheme()"
-              class="theme-toggle">
-              <span class="toggle-label">
-                <mat-icon>{{ isDarkMode ? 'dark_mode' : 'light_mode' }}</mat-icon>
-              </span>
-            </mat-slide-toggle>
+    <div>
+      <div class="min-h-screen bg-base transition-colors duration-300">
+        <div class="flex">
+          <!-- Sidebar -->
+          <aside class="hidden md:flex w-72 flex-col sticky top-0 h-screen px-4 py-6">
+            <div class="flex items-center gap-3 px-3 mb-6">
+              <div class="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center shadow-md">
+                <span class="text-xl">🔥</span>
+              </div>
+              <div>
+                <h1 class="text-lg font-bold text-ink leading-tight">HabitFlow</h1>
+                <p class="text-xs text-muted">SaaS-grade consistency</p>
+              </div>
+            </div>
+
+            <nav class="flex-1 space-y-2">
+              <a
+                routerLink="/"
+                [routerLinkActiveOptions]="{ exact: true }"
+                routerLinkActive="!bg-primary-600 !text-white !border-primary-600"
+                class="block px-4 py-3 rounded-2xl text-sm font-bold text-ink/80 bg-surface/70 border border-line/70 hover:bg-surface transition-all shadow-sm"
+              >
+                Dashboard
+              </a>
+              <a
+                routerLink="/habits"
+                routerLinkActive="!bg-primary-600 !text-white !border-primary-600"
+                class="block px-4 py-3 rounded-2xl text-sm font-bold text-ink/80 bg-surface/70 border border-line/70 hover:bg-surface transition-all"
+              >
+                Habits
+              </a>
+              <a
+                routerLink="/analytics"
+                routerLinkActive="!bg-primary-600 !text-white !border-primary-600"
+                class="block px-4 py-3 rounded-2xl text-sm font-bold text-ink/80 bg-surface/70 border border-line/70 hover:bg-surface transition-all"
+              >
+                Analytics
+              </a>
+              <a
+                routerLink="/profile"
+                routerLinkActive="!bg-primary-600 !text-white !border-primary-600"
+                class="block px-4 py-3 rounded-2xl text-sm font-bold text-ink/80 bg-surface/70 border border-line/70 hover:bg-surface transition-all"
+              >
+                Profile
+              </a>
+            </nav>
+
+            <div class="mt-auto space-y-3 px-2">
+              <a
+                routerLink="/add-habit"
+                class="block px-4 py-3 rounded-2xl text-sm font-bold bg-primary-600 text-white hover:bg-primary-700 transition-colors shadow-md text-center"
+              >
+                + New Habit
+              </a>
+            </div>
+          </aside>
+
+          <!-- Content -->
+          <div class="flex-1">
+            <!-- Mobile header -->
+            <header class="md:hidden sticky top-0 z-40 bg-surface/80 backdrop-blur-md border-b border-line">
+              <div class="px-4 h-14 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 bg-primary-600 rounded-xl flex items-center justify-center shadow-md">
+                    <span class="text-lg">🔥</span>
+                  </div>
+                  <div>
+                    <h1 class="text-sm font-bold text-ink leading-tight">HabitFlow</h1>
+                    <p class="text-xs text-muted">Level up</p>
+                  </div>
+                </div>
+              </div>
+            </header>
+
+            <main class="max-w-7xl mx-auto px-4 py-8" id="page-shell">
+              <router-outlet></router-outlet>
+            </main>
           </div>
         </div>
-      </mat-toolbar>
-      
-      <main class="main-content">
-        <app-dashboard></app-dashboard>
-      </main>
+      </div>
     </div>
   `,
-  styles: [`
-    .app-container {
-      min-height: 100vh;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      transition: background 0.3s ease;
-    }
-
-    .dark-theme {
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    }
-
-    .toolbar {
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-      position: sticky;
-      top: 0;
-      z-index: 1000;
-    }
-
-    .dark-theme .toolbar {
-      background: rgba(26, 26, 46, 0.95);
-      color: white;
-    }
-
-    .toolbar-content {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      width: 100%;
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 0 20px;
-    }
-
-    .logo-section {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .logo-icon {
-      font-size: 32px;
-      animation: sparkle 2s ease-in-out infinite;
-    }
-
-    @keyframes sparkle {
-      0%, 100% { transform: scale(1) rotate(0deg); }
-      50% { transform: scale(1.1) rotate(5deg); }
-    }
-
-    h1 {
-      margin: 0;
-      font-size: 24px;
-      font-weight: 700;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .dark-theme h1 {
-      background: linear-gradient(135deg, #a8b3ff 0%, #c79fff 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .toolbar-actions {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .theme-toggle {
-      ::ng-deep .mat-slide-toggle-bar {
-        background: rgba(102, 126, 234, 0.3);
-      }
-      
-      ::ng-deep .mat-slide-toggle-thumb {
-        background: #667eea;
-      }
-    }
-
-    .toggle-label {
-      display: flex;
-      align-items: center;
-    }
-
-    .main-content {
-      padding: 24px;
-      max-width: 1400px;
-      margin: 0 auto;
-    }
-
-    @media (max-width: 768px) {
-      .main-content {
-        padding: 16px;
-      }
-
-      h1 {
-        font-size: 20px;
-      }
-
-      .logo-icon {
-        font-size: 24px;
-      }
-    }
-  `]
+  styles: []
 })
-export class AppComponent implements OnInit {
-  isDarkMode = false;
+export class AppComponent implements OnInit, OnDestroy {
+  private subscriptions: Subscription[] = [];
 
-  constructor(private themeService: ThemeService) {}
+  constructor(
+    private router: Router,
+    // Side-effect service: starts/stops reminder scheduling based on Profile preferences.
+    private notificationService: NotificationService
+  ) {}
 
   ngOnInit(): void {
-    this.themeService.darkMode$.subscribe(darkMode => {
-      this.isDarkMode = darkMode;
-    });
+    this.subscriptions.push(
+      this.router.events
+        .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
+        .subscribe(() => {
+          const pageShell = document.getElementById('page-shell');
+          if (pageShell) {
+            animateMini(
+              pageShell,
+              { opacity: ['0.85', '1'], transform: ['translateY(10px)', 'translateY(0px)'] },
+              { duration: 0.32, ease: 'easeOut' }
+            );
+          }
+        })
+    );
   }
 
-  toggleTheme(): void {
-    this.themeService.toggleTheme();
+  ngOnDestroy(): void {
+    this.subscriptions.forEach((sub) => sub.unsubscribe());
   }
 }

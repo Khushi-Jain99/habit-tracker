@@ -1,261 +1,184 @@
-<div class="dashboard-container">
-  <section class="hero">
-    <div>
-      <h2>Today Command Center</h2>
-      <p>Build consistency with schedule-aware tracking, streak shields, and personalized coaching.</p>
+<div class="space-y-8 animate-fade-in dashboard-page">
+  <!-- Hero Section / Stats Summary -->
+  <section class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="bg-surface p-6 rounded-3xl border border-line shadow-sm">
+      <span class="text-xs font-bold text-muted uppercase tracking-wider">Total XP</span>
+      <div class="text-3xl font-black text-ink mt-1">{{ stats.totalPoints }}</div>
     </div>
-    <div class="hero-controls">
-      <mat-form-field appearance="outline" class="month-selector">
-        <mat-label>Month</mat-label>
-        <mat-select [(ngModel)]="selectedMonth" (selectionChange)="onMonthChange()">
-          <mat-option *ngFor="let month of months; let i = index" [value]="i">{{ month }}</mat-option>
-        </mat-select>
-      </mat-form-field>
+    <div class="bg-surface p-6 rounded-3xl border border-line shadow-sm">
+      <span class="text-xs font-bold text-muted uppercase tracking-wider">Current Level</span>
+      <div class="text-3xl font-black text-primary-600 mt-1">Lv {{ stats.level }}</div>
+    </div>
+    <div class="bg-surface p-6 rounded-3xl border border-line shadow-sm">
+      <span class="text-xs font-bold text-muted uppercase tracking-wider">Today Progress</span>
+      <div class="text-3xl font-black text-ink mt-1">{{ stats.completedToday }}/{{ stats.dueToday }}</div>
+    </div>
+    <div class="bg-primary-600 p-6 rounded-3xl shadow-md text-white">
+      <span class="text-xs font-bold text-primary-100 uppercase tracking-wider">Today XP</span>
+      <div class="text-3xl font-black mt-1">+{{ stats.todayPoints }}</div>
+    </div>
+  </section>
 
-      <mat-form-field appearance="outline" class="year-selector">
-        <mat-label>Year</mat-label>
-        <mat-select [(ngModel)]="selectedYear" (selectionChange)="onMonthChange()">
-          <mat-option *ngFor="let year of years" [value]="year">{{ year }}</mat-option>
-        </mat-select>
-      </mat-form-field>
+  <!-- Progress Bar -->
+  <section class="bg-surface p-6 rounded-3xl border border-line shadow-sm">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-bold text-ink">Daily Goal</h3>
+      <span class="text-primary-600 font-bold">{{ stats.dailyCompletionPercent }}%</span>
+    </div>
+    <div class="h-4 w-full bg-surface-muted rounded-full overflow-hidden">
+      <div class="h-full bg-primary-600 transition-all duration-700 ease-out daily-progress-fill"
+           [style.width.%]="stats.dailyCompletionPercent">
+      </div>
+    </div>
+  </section>
 
-      <button mat-raised-button color="primary" class="add-btn" (click)="openAddHabitDialog()">
-        <mat-icon>add</mat-icon>
-        New Habit
+  <!-- Weekly Overview -->
+  <section class="bg-surface p-6 rounded-3xl border border-line shadow-sm">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-bold text-ink">Weekly Overview</h3>
+      <span class="text-xs font-bold text-muted">Last 7 days</span>
+    </div>
+    <div class="flex items-end gap-2">
+      <div *ngFor="let day of weeklyStats" class="flex-1">
+        <div class="h-28 flex items-end">
+          <div class="w-full rounded-xl bg-primary-500 transition-all duration-500 shadow-sm"
+               [style.height.%]="day.completionRate">
+          </div>
+        </div>
+        <div class="text-[10px] text-center text-muted mt-2">
+          {{ getDayLabel(day.date) }}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Motivational Insight -->
+  <section *ngIf="insights?.aiCoachMessage" class="bg-surface p-6 rounded-3xl border border-line shadow-sm">
+    <div class="flex items-start gap-3">
+      <div class="w-10 h-10 rounded-2xl bg-primary-100 text-primary-600 flex items-center justify-center shadow-sm">
+        ✨
+      </div>
+      <div>
+        <h3 class="text-sm font-bold text-muted uppercase tracking-wider">Coach Insight</h3>
+        <p class="mt-2 text-sm text-ink/80 leading-relaxed">
+          {{ insights?.aiCoachMessage }}
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Badges Section -->
+  <section *ngIf="stats.badges.length > 0" class="animate-slide-in">
+    <h3 class="text-sm font-bold text-muted uppercase tracking-wider mb-4 px-2">Achievements</h3>
+    <div class="flex flex-wrap gap-3">
+      <div *ngFor="let badge of stats.badges" class="flex items-center gap-3 bg-surface px-4 py-3 rounded-2xl border border-line shadow-sm">
+        <span class="text-2xl">{{ badge.icon }}</span>
+        <div>
+          <div class="text-sm font-bold text-ink">{{ badge.label }}</div>
+          <div class="text-xs text-muted">{{ badge.description }}</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Habit List Header -->
+  <section>
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div class="flex bg-surface-muted p-1 rounded-xl w-fit">
+        <button (click)="setFilter('all')"
+                [class]="activeFilter === 'all' ? 'bg-surface shadow-sm text-ink' : 'text-muted hover:text-ink'"
+                class="px-4 py-2 rounded-lg text-sm font-bold transition-all">
+          All
+        </button>
+        <button (click)="setFilter('daily')"
+                [class]="activeFilter === 'daily' ? 'bg-surface shadow-sm text-ink' : 'text-muted hover:text-ink'"
+                class="px-4 py-2 rounded-lg text-sm font-bold transition-all">
+          Daily
+        </button>
+        <button (click)="setFilter('weekly')"
+                [class]="activeFilter === 'weekly' ? 'bg-surface shadow-sm text-ink' : 'text-muted hover:text-ink'"
+                class="px-4 py-2 rounded-lg text-sm font-bold transition-all">
+          Weekly
+        </button>
+        <button (click)="setFilter('custom')"
+                [class]="activeFilter === 'custom' ? 'bg-surface shadow-sm text-ink' : 'text-muted hover:text-ink'"
+                class="px-4 py-2 rounded-lg text-sm font-bold transition-all">
+          Custom
+        </button>
+      </div>
+      <button (click)="goToAddHabit($event)" class="md:hidden px-6 py-3 bg-primary-600 text-white rounded-2xl font-bold shadow-md">
+        + Add New Habit
       </button>
     </div>
-  </section>
 
-  <section class="kpi-grid">
-    <mat-card class="kpi-card tone-a">
-      <div class="kpi-label">Due Today</div>
-      <div class="kpi-value">{{ dueToday }}</div>
-      <div class="kpi-sub">Scheduled actions waiting</div>
-    </mat-card>
+    <!-- Empty State -->
+    <div *ngIf="filteredHabits.length === 0" class="bg-surface border-2 border-dashed border-line rounded-3xl p-12 text-center">
+      <div class="text-4xl mb-4">✨</div>
+      <h3 class="text-lg font-bold text-ink mb-2">No habits yet ({{ activeFilter }})</h3>
+      <p class="text-muted mb-6">Start your journey by adding a new habit to track.</p>
+      <button (click)="goToAddHabit($event)" class="px-8 py-3 bg-primary-600 text-white rounded-2xl font-bold">
+        Create First Habit
+      </button>
+    </div>
 
-    <mat-card class="kpi-card tone-b">
-      <div class="kpi-label">Consistency Score</div>
-      <div class="kpi-value">{{ insights?.consistencyScore ?? 0 }}%</div>
-      <div class="kpi-sub">Rolling 7 and 30 day blend</div>
-    </mat-card>
-
-    <mat-card class="kpi-card tone-c">
-      <div class="kpi-label">Current Level</div>
-      <div class="kpi-value">Lv {{ gamification?.level ?? 1 }}</div>
-      <div class="kpi-sub">XP {{ gamification?.xp ?? 0 }}</div>
-    </mat-card>
-
-    <mat-card class="kpi-card tone-d">
-      <div class="kpi-label">Streak Shields</div>
-      <div class="kpi-value">{{ gamification?.streakShields ?? 0 }}</div>
-      <div class="kpi-sub">Recovery tokens remaining</div>
-    </mat-card>
-  </section>
-
-  <section class="smart-grid">
-    <mat-card class="coach-card">
-      <mat-card-header>
-        <mat-card-title>
-          <mat-icon>smart_toy</mat-icon>
-          AI Coach
-        </mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <p>{{ insights?.aiCoachMessage }}</p>
-        <div class="coach-pills">
-          <span>Best day: {{ insights?.bestDay }}</span>
-          <span>Top habit: {{ insights?.mostConsistentHabitName }}</span>
-        </div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="integration-card">
-      <mat-card-header>
-        <mat-card-title>
-          <mat-icon>integration_instructions</mat-icon>
-          Integrations
-        </mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="integration-actions">
-          <button mat-stroked-button (click)="exportCalendar()">
-            <mat-icon>calendar_month</mat-icon>
-            Export .ics Calendar
-          </button>
-          <button mat-stroked-button (click)="enableNotifications()">
-            <mat-icon>notifications_active</mat-icon>
-            Enable Notifications
-          </button>
-          <button mat-stroked-button (click)="sendReminderPreview()">
-            <mat-icon>preview</mat-icon>
-            Reminder Preview
-          </button>
-        </div>
-        <div class="integration-meta">
-          <span>Notifications: {{ integrations?.browserNotificationsEnabled ? 'Enabled' : 'Disabled' }}</span>
-          <span>Last calendar sync: {{ integrations?.lastCalendarSyncAt ? (integrations?.lastCalendarSyncAt | date:'short') : 'Not yet' }}</span>
-        </div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="gamification-card">
-      <mat-card-header>
-        <mat-card-title>
-          <mat-icon>emoji_events</mat-icon>
-          Rewards & Badges
-        </mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="quest-row">
-          <span>Weekly Quest</span>
-          <strong>{{ gamification?.weeklyQuestProgress ?? 0 }}/{{ gamification?.weeklyQuestTarget ?? 0 }}</strong>
-        </div>
-        <mat-progress-bar mode="determinate" [value]="((gamification?.weeklyQuestProgress ?? 0) / (gamification?.weeklyQuestTarget ?? 1)) * 100"></mat-progress-bar>
-        <div class="badges">
-          <div class="badge" *ngFor="let badge of gamification?.badges">
-            <span>{{ badge.icon }}</span>
+    <!-- Habit Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <article *ngFor="let habit of filteredHabits; trackBy: trackHabit"
+               class="group bg-surface p-4 sm:p-6 rounded-3xl border border-line shadow-sm hover:shadow-md transition-all habit-item">
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex gap-4">
+            <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0" [style.backgroundColor]="habit.color + '20'" [style.color]="habit.color">
+              {{ habit.icon }}
+            </div>
             <div>
-              <strong>{{ badge.label }}</strong>
-              <small>{{ badge.description }}</small>
+              <div class="flex items-center gap-2">
+                <h4 class="text-lg font-bold text-ink group-hover:text-primary-600 transition-colors">{{ habit.name }}</h4>
+                <button (click)="editHabit(habit); $event.stopPropagation()"
+                        class="opacity-0 group-hover:opacity-100 p-1 text-muted hover:text-primary-500 transition-all">
+                  ✏️
+                </button>
+                <button (click)="onDeleteHabit(habit.id, $event)" class="opacity-0 group-hover:opacity-100 p-1 text-muted hover:text-red-500 transition-all">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+              <p class="text-sm text-muted">{{ habit.targetValue }} {{ habit.unit }} • {{ habit.frequencyPerWeek }}x/week</p>
             </div>
           </div>
-          <div class="badge empty" *ngIf="(gamification?.badges?.length ?? 0) === 0">
-            Complete this week strongly to unlock badges.
-          </div>
+          <button (click)="onCompleteHabit(habit, $event)"
+                  [class]="isCompletedToday(habit.id) ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-primary-50 text-primary-600 border-primary-100'"
+                  class="relative px-6 py-3 rounded-2xl border font-bold transition-all active:scale-95 complete-btn">
+            {{ isCompletedToday(habit.id) ? 'Done' : '+10 XP' }}
+            <div class="absolute -top-12 left-1/2 -translate-x-1/2 pointer-events-none opacity-0 transition-all points-popup"
+                 *ngFor="let popup of pointsPopups" [class.show]="popup.habitId === habit.id">
+              <span class="bg-primary-600 text-white px-3 py-1 rounded-full text-xs shadow-lg">+{{ popup.value }}</span>
+            </div>
+          </button>
         </div>
-      </mat-card-content>
-    </mat-card>
-  </section>
 
-  <section class="charts-grid">
-    <mat-card class="chart-card">
-      <mat-card-header><mat-card-title><mat-icon>show_chart</mat-icon>Daily Progress</mat-card-title></mat-card-header>
-      <mat-card-content><div class="chart-container"><canvas *ngIf="dailyProgressChart" baseChart [data]="dailyProgressChart" [options]="dailyChartOptions" type="bar"></canvas></div></mat-card-content>
-    </mat-card>
-
-    <mat-card class="chart-card">
-      <mat-card-header><mat-card-title><mat-icon>calendar_view_week</mat-icon>Weekly Momentum</mat-card-title></mat-card-header>
-      <mat-card-content><div class="chart-container"><canvas *ngIf="weeklyProgressChart" baseChart [data]="weeklyProgressChart" [options]="weeklyChartOptions" type="bar"></canvas></div></mat-card-content>
-    </mat-card>
-
-    <mat-card class="chart-card">
-      <mat-card-header><mat-card-title><mat-icon>pie_chart</mat-icon>Goal Completion</mat-card-title></mat-card-header>
-      <mat-card-content><div class="chart-container"><canvas *ngIf="overallStatsChart" baseChart [data]="overallStatsChart" [options]="pieChartOptions" type="doughnut"></canvas></div></mat-card-content>
-    </mat-card>
-
-    <mat-card class="chart-card">
-      <mat-card-header><mat-card-title><mat-icon>timeline</mat-icon>Weekday Performance</mat-card-title></mat-card-header>
-      <mat-card-content><div class="chart-container"><canvas *ngIf="weekdayChart" baseChart [data]="weekdayChart" [options]="lineChartOptions" type="line"></canvas></div></mat-card-content>
-    </mat-card>
-  </section>
-
-  <section class="stats-strip">
-    <mat-card>
-      <div class="stats-grid">
-        <div><span>Goal</span><strong>{{ overallGoal }}</strong></div>
-        <div><span>Completed</span><strong>{{ overallCompleted }}</strong></div>
-        <div><span>Left</span><strong>{{ overallLeft }}</strong></div>
-        <div><span>Overall</span><strong>{{ overallPercentage }}%</strong></div>
-      </div>
-      <mat-progress-bar mode="determinate" [value]="overallPercentage"></mat-progress-bar>
-    </mat-card>
-  </section>
-
-  <section class="habits-grid-card">
-    <mat-card>
-      <mat-card-header>
-        <mat-card-title><mat-icon>grid_on</mat-icon>Habit Matrix - {{ months[selectedMonth] }}</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="habits-table-wrapper">
-          <table class="habits-table">
-            <thead>
-              <tr>
-                <th class="habit-name-col">Habit</th>
-                <th class="streak-col">Streak</th>
-                <th *ngFor="let day of daysInMonth" class="day-col" [class.weekend]="getWeekDay(day) === 'Su' || getWeekDay(day) === 'Sa'">
-                  <div class="day-header">
-                    <span class="day-num">{{ day }}</span>
-                    <span class="day-name">{{ getWeekDay(day) }}</span>
-                  </div>
-                </th>
-                <th class="actions-col">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let habit of habits" class="habit-row">
-                <td class="habit-name">
-                  <span class="habit-icon" [style.background]="habit.color">{{ habit.icon }}</span>
-                  <div>
-                    <div class="habit-text">{{ habit.name }}</div>
-                    <small>{{ habit.type }} • {{ habit.targetValue }} {{ habit.unit }}</small>
-                  </div>
-                </td>
-                <td class="streak-cell"><span class="streak-badge">{{ getHabitStreak(habit.id) }}</span></td>
-                <td *ngFor="let day of daysInMonth" class="day-cell" [class.weekend]="getWeekDay(day) === 'Su' || getWeekDay(day) === 'Sa'" [class.unscheduled]="!isScheduled(habit, day)">
-                  <button class="checkbox-btn" [disabled]="!isScheduled(habit, day)" [class.completed]="isCompleted(habit.id, day)" [style.--habit-color]="habit.color" (click)="toggleCompletion(habit.id, day)">
-                    <mat-icon *ngIf="isCompleted(habit.id, day)">check</mat-icon>
-                  </button>
-                </td>
-                <td class="actions-cell">
-                  <button mat-icon-button [matMenuTriggerFor]="menu" class="action-btn"><mat-icon>more_vert</mat-icon></button>
-                  <mat-menu #menu="matMenu">
-                    <button mat-menu-item (click)="openEditHabitDialog(habit)"><mat-icon>edit</mat-icon><span>Edit</span></button>
-                    <button mat-menu-item (click)="recoverWithShield(habit.id, 1)"><mat-icon>shield</mat-icon><span>Use Shield</span></button>
-                    <button mat-menu-item (click)="archiveHabit(habit.id)"><mat-icon>inventory_2</mat-icon><span>Archive</span></button>
-                    <button mat-menu-item (click)="deleteHabit(habit.id)"><mat-icon>delete</mat-icon><span>Delete</span></button>
-                  </mat-menu>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </mat-card-content>
-    </mat-card>
-  </section>
-
-  <section class="bottom-grid">
-    <mat-card class="top-habits-card">
-      <mat-card-header>
-        <mat-card-title><mat-icon>military_tech</mat-icon>Top 5 Habits</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="top-habits-list">
-          <div *ngFor="let item of topHabits; let i = index" class="top-habit-item">
-            <div class="habit-rank">{{ i + 1 }}</div>
-            <div class="habit-info">
-              <div class="habit-header">
-                <span class="habit-icon-small" [style.background]="item.habit.color">{{ item.habit.icon }}</span>
-                <span class="habit-name-text">{{ item.habit.name }}</span>
-              </div>
-              <div class="habit-progress">
-                <mat-progress-bar mode="determinate" [value]="item.stats.completionRate"></mat-progress-bar>
-                <span class="progress-text">{{ item.stats.completionRate.toFixed(0) }}%</span>
-              </div>
+        <div class="grid grid-cols-3 gap-2 mt-6">
+          <div class="bg-surface-muted p-3 rounded-2xl">
+            <div class="text-[10px] font-bold text-muted uppercase tracking-tight">Streak</div>
+            <div class="mt-2 flex items-center justify-center">
+              <app-progress-ring
+                [percent]="getStreakPercent(habit.id)"
+                [valueText]="getProgress(habit.id).currentStreak"
+                [caption]="getStreakCaption(habit.id)"
+                [tone]="getStreakTone(habit.id)"
+                [size]="56">
+              </app-progress-ring>
             </div>
           </div>
+          <div class="bg-surface-muted p-3 rounded-2xl">
+            <div class="text-[10px] font-bold text-muted uppercase tracking-tight">Best</div>
+            <div class="text-lg font-black text-ink">{{ getProgress(habit.id).longestStreak }}</div>
+          </div>
+          <div class="p-3 rounded-2xl flex items-center justify-center transition-colors" [ngClass]="getBadgeTone(getProgress(habit.id).badge)">
+            <span class="text-xs font-black uppercase">{{ getProgress(habit.id).badge }}</span>
+          </div>
         </div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="mood-chart-card">
-      <mat-card-header>
-        <mat-card-title><mat-icon>sentiment_satisfied</mat-icon>Mood and Motivation</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="chart-container"><canvas *ngIf="moodChart" baseChart [data]="moodChart" [options]="lineChartOptions" type="line"></canvas></div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="heatmap-card">
-      <mat-card-header>
-        <mat-card-title><mat-icon>calendar_view_month</mat-icon>28-Day Heatmap</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="heatmap-grid">
-          <div *ngFor="let cell of heatmap" class="heat-cell" [class]="getHeatClass(cell.score)" [title]="cell.date"></div>
-        </div>
-      </mat-card-content>
-    </mat-card>
+      </article>
+    </div>
   </section>
 </div>

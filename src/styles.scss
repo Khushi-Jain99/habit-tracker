@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Global Styles */
 * {
   margin: 0;
@@ -12,17 +16,26 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-body {
-  margin: 0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  min-height: 100vh;
-  overflow-x: hidden;
+:root {
+  --color-bg: 236 240 245;
+  --color-surface: 255 255 255;
+  --color-surface-muted: 243 244 246;
+  --color-text: 15 23 42;
+  --color-muted: 100 116 139;
+  --color-border: 226 232 240;
+  --color-border-strong: 203 213 225;
+  --color-primary-500: 111 140 255;
+  --color-primary-600: 91 119 242;
+  --color-accent-500: 47 179 151;
+  --color-shadow: 15 23 42;
 }
 
-/* Dark Theme */
-body.dark-theme {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  color: #e0e0e0;
+body {
+  margin: 0;
+  background-color: rgb(var(--color-bg));
+  color: rgb(var(--color-text));
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
 /* Scrollbar Styling */
@@ -32,26 +45,19 @@ body.dark-theme {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgb(var(--color-surface-muted));
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(102, 126, 234, 0.5);
+  background: rgb(var(--color-primary-500) / 0.4);
   border-radius: 10px;
   
   &:hover {
-    background: rgba(102, 126, 234, 0.7);
+    background: rgb(var(--color-primary-500) / 0.55);
   }
 }
 
-.dark-theme ::-webkit-scrollbar-thumb {
-  background: rgba(168, 179, 255, 0.5);
-  
-  &:hover {
-    background: rgba(168, 179, 255, 0.7);
-  }
-}
 
 /* Material Design Overrides */
 .mat-mdc-card {
@@ -143,24 +149,18 @@ body.dark-theme {
   
   &:hover {
     transform: translateY(-5px);
-    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 12px 32px rgba(var(--color-shadow), 0.12);
   }
 }
 
 /* Gradient Text */
 .gradient-text {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, rgb(var(--color-primary-500)), rgb(var(--color-accent-500)));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-.dark-theme .gradient-text {
-  background: linear-gradient(135deg, #a8b3ff 0%, #c79fff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
 
 /* Button Styles */
 button {
@@ -177,8 +177,8 @@ button {
 
 /* Loading Spinner */
 .spinner {
-  border: 4px solid rgba(0, 0, 0, 0.1);
-  border-left-color: #667eea;
+  border: 4px solid rgb(var(--color-border));
+  border-left-color: rgb(var(--color-primary-500));
   border-radius: 50%;
   width: 40px;
   height: 40px;
@@ -215,7 +215,6 @@ button {
   }
   
   .toolbar,
-  .theme-toggle,
   button {
     display: none !important;
   }

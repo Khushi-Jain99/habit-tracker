@@ -3,7 +3,7 @@ export interface Habit {
   name: string;
   icon: string;
   color: string;
-  goal: number; // legacy monthly goal
+  goal: number; // legacy monthly goal (kept for future backend compatibility)
   type: HabitType;
   targetValue: number;
   unit: string;
@@ -11,9 +11,15 @@ export interface Habit {
   weekDays: number[];
   reminderTime?: string;
   difficulty: 'easy' | 'medium' | 'hard';
+  // Frequency classification for the product spec (Daily / Weekly / Custom)
+  frequencyType: 'daily' | 'weekly' | 'custom';
+  // User-defined grouping (e.g., Health, Fitness, Productivity)
+  category: string;
   archived: boolean;
   createdAt: Date;
   completedDates: string[]; // ISO date strings
+  // Cached last completion date key (YYYY-MM-DD) for quick streak UI.
+  lastCompletedDate?: string;
 }
 
 export type HabitType = 'boolean' | 'count' | 'duration';
@@ -45,13 +51,28 @@ export interface Badge {
   earnedAt?: string;
 }
 
+export type HabitBadge = 'Beginner' | 'Consistent' | 'Master' | 'None';
+
+export interface HabitProgress {
+  habitId: string;
+  currentStreak: number;
+  longestStreak: number;
+  badge: HabitBadge;
+  totalCompletions: number;
+}
+
 export interface GamificationStats {
-  xp: number;
+  totalPoints: number;
+  todayPoints: number;
   level: number;
-  streakShields: number;
-  weeklyQuestProgress: number;
-  weeklyQuestTarget: number;
+  levelProgressPercent: number;
+  nextLevelPoints: number;
+  dailyCompletionPercent: number;
+  completedToday: number;
+  dueToday: number;
   badges: Badge[];
+  perfectDay?: boolean;
+  perfectWeek?: boolean;
 }
 
 export interface IntegrationStatus {

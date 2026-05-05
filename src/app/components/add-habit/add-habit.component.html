@@ -1,0 +1,111 @@
+<div class="max-w-3xl mx-auto p-4 md:p-8 animate-fade-in add-page">
+  <header class="flex items-center gap-4 mb-8">
+    <button (click)="back($event)" class="p-2 rounded-xl bg-surface border border-line hover:bg-surface-muted transition-colors">
+      ⬅️
+    </button>
+    <h2 class="text-3xl font-black text-ink">New Habit</h2>
+  </header>
+
+  <form class="space-y-6">
+    <!-- Icon & Name -->
+    <div class="bg-surface p-6 rounded-3xl border border-line shadow-sm space-y-4">
+      <div class="flex gap-4">
+        <div class="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl bg-surface-muted border-2 border-dashed border-line">
+          {{ icon }}
+        </div>
+        <div class="flex-1 space-y-1">
+          <label class="text-xs font-bold text-muted uppercase tracking-wider">Habit Name</label>
+          <input [(ngModel)]="name" name="name" type="text" placeholder="e.g. Morning Run"
+                 class="w-full bg-transparent text-xl font-bold text-ink border-b-2 border-surface-muted focus:border-primary-500 outline-none transition-colors py-2">
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <label class="text-xs font-bold text-muted uppercase tracking-wider">Choose Icon</label>
+        <div class="flex flex-wrap gap-2">
+          <button *ngFor="let i of icons" type="button" (click)="icon = i"
+                  [class]="icon === i ? 'bg-primary-500 text-white scale-110 shadow-md' : 'bg-surface-muted text-ink hover:bg-surface'"
+                  class="w-10 h-10 rounded-xl transition-all flex items-center justify-center">
+            {{ i }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Frequency Type & Category Tag -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="bg-surface p-6 rounded-3xl border border-line shadow-sm space-y-4">
+        <label class="text-xs font-bold text-muted uppercase tracking-wider">Frequency Type</label>
+        <div class="flex bg-surface-muted p-1 rounded-xl">
+          <button type="button" (click)="setFrequencyType('daily')"
+                  [class]="frequencyType === 'daily' ? 'bg-surface shadow-sm text-ink' : 'text-muted'"
+                  class="flex-1 py-2 rounded-lg text-sm font-bold transition-all">Daily</button>
+          <button type="button" (click)="setFrequencyType('weekly')"
+                  [class]="frequencyType === 'weekly' ? 'bg-surface shadow-sm text-ink' : 'text-muted'"
+                  class="flex-1 py-2 rounded-lg text-sm font-bold transition-all">Weekly</button>
+          <button type="button" (click)="setFrequencyType('custom')"
+                  [class]="frequencyType === 'custom' ? 'bg-surface shadow-sm text-ink' : 'text-muted'"
+                  class="flex-1 py-2 rounded-lg text-sm font-bold transition-all">Custom</button>
+        </div>
+      </div>
+
+      <div class="bg-surface p-6 rounded-3xl border border-line shadow-sm space-y-4">
+        <label class="text-xs font-bold text-muted uppercase tracking-wider">Category (Tag)</label>
+        <select [(ngModel)]="category" name="category"
+                class="w-full bg-surface-muted p-3 rounded-xl font-bold text-ink outline-none border border-transparent focus:border-primary-500 transition-colors">
+          <option *ngFor="let c of categories" [ngValue]="c">{{ c }}</option>
+        </select>
+
+        <div class="pt-3">
+          <label class="text-xs font-bold text-muted uppercase tracking-wider">Difficulty</label>
+          <div class="flex gap-2 mt-2">
+            <button type="button" *ngFor="let diff of difficulties" (click)="difficulty = diff"
+                    [class]="difficulty === diff ? 'bg-primary-500 text-white shadow-md' : 'bg-surface-muted text-muted'"
+                    class="flex-1 py-2 rounded-xl text-xs font-bold capitalize transition-all">{{ diff }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Target & Schedule -->
+    <div class="bg-surface p-6 rounded-3xl border border-line shadow-sm space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="space-y-2">
+          <label class="text-xs font-bold text-muted uppercase tracking-wider">Goal (Target)</label>
+          <div class="flex items-center gap-3">
+            <input [(ngModel)]="targetValue" name="targetValue" type="number" class="w-20 bg-surface-muted p-3 rounded-xl text-center font-bold text-ink outline-none">
+            <input [(ngModel)]="unit" name="unit" type="text" placeholder="unit" class="flex-1 bg-surface-muted p-3 rounded-xl font-bold text-ink outline-none">
+          </div>
+        </div>
+        <div class="space-y-2">
+          <label class="text-xs font-bold text-muted uppercase tracking-wider">Reminder Time</label>
+          <input [(ngModel)]="reminderTime" name="reminderTime" type="time" class="w-full bg-surface-muted p-3 rounded-xl font-bold text-ink outline-none">
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <label class="text-xs font-bold text-muted uppercase tracking-wider">
+          Active Days <span class="text-muted" *ngIf="frequencyType === 'daily'">(Daily habit runs every day)</span>
+        </label>
+
+        <div *ngIf="frequencyType !== 'daily'" class="flex justify-between">
+          <button *ngFor="let day of days" type="button" (click)="toggleDay(day.value)"
+                  [class]="weekDays.includes(day.value) ? 'bg-primary-500 text-white shadow-md' : 'bg-surface-muted text-muted hover:bg-surface'"
+                  class="w-10 h-10 md:w-12 md:h-12 rounded-xl font-bold text-xs md:text-sm transition-all">
+            {{ day.label }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex gap-4">
+      <button (click)="back($event)" type="button" class="flex-1 py-4 rounded-2xl bg-surface-muted text-muted font-bold hover:bg-surface transition-all">
+        Cancel
+      </button>
+      <button (click)="save($event)" [disabled]="!isValid()" type="submit"
+              class="flex-[2] py-4 rounded-2xl bg-primary-600 text-white font-bold shadow-md hover:bg-primary-700 disabled:opacity-50 disabled:shadow-none transition-all">
+        Create Habit
+      </button>
+    </div>
+  </form>
+</div>

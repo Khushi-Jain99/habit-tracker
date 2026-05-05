@@ -1,259 +1,169 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
-import {
-  Badge,
-  DashboardInsights,
-  GamificationStats,
-  Habit,
-  HabitEntry,
-  HabitStats,
-  IntegrationStatus,
-  MoodEntry
-} from '../models/habit.model';
+import { Badge, DashboardInsights, GamificationStats, Habit, HabitBadge, HabitProgress } from '../models/habit.model';
+
+export interface CompletionResult {
+  completed: boolean;
+  pointsEarned: number;
+}
+
+interface HabitFlowStateV1 {
+  version: 1;
+  habits: Habit[];
+  gamification?: {
+    earnedBadges: Record<string, Badge>;
+  };
+  updatedAt: string;
+}
 
 @Injectable({
   providedIn: 'root'
 })
 export class HabitService {
+  private readonly STATE_KEY = 'habitflow_state_v1';
+  private readonly HABITS_KEY = 'habits_v3';
+  private readonly LEGACY_HABITS_KEY = 'habits_v2';
+
   private habitsSubject = new BehaviorSubject<Habit[]>([]);
-  public habits$ = this.habitsSubject.asObservable();
-
-  private moodEntriesSubject = new BehaviorSubject<MoodEntry[]>([]);
-  public moodEntries$ = this.moodEntriesSubject.asObservable();
-
-  private habitEntriesSubject = new BehaviorSubject<HabitEntry[]>([]);
-  public habitEntries$ = this.habitEntriesSubject.asObservable();
+  habits$ = this.habitsSubject.asObservable();
 
   private gamificationSubject = new BehaviorSubject<GamificationStats>({
-    xp: 0,
-    level: 1,
-    streakShields: 2,
-    weeklyQuestProgress: 0,
-    weeklyQuestTarget: 15,
-    badges: []
+    totalPoints: 0,
+    todayPoints: 0,
+    level: 0,
+    levelProgressPercent: 0,
+    nextLevelPoints: 100,
+    dailyCompletionPercent: 0,
+    completedToday: 0,
+    dueToday: 0,
+    badges: [],
+    perfectDay: false,
+    perfectWeek: false
   });
-  public gamification$ = this.gamificationSubject.asObservable();
+  gamification$ = this.gamificationSubject.asObservable();
 
-  private integrationStatusSubject = new BehaviorSubject<IntegrationStatus>({
-    calendarExportEnabled: true,
-    browserNotificationsEnabled: false
-  });
-  public integrationStatus$ = this.integrationStatusSubject.asObservable();
-
-  private readonly HABITS_KEY = 'habits_v2';
-  private readonly LEGACY_HABITS_KEY = 'habits';
-  private readonly MOOD_KEY = 'moodEntries';
-  private readonly ENTRIES_KEY = 'habitEntries_v2';
-  private readonly GAMIFICATION_KEY = 'gamification_v2';
-  private readonly INTEGRATIONS_KEY = 'integrations_v2';
+  private earnedBadges: Record<string, Badge> = {};
 
   constructor() {
     this.loadFromStorage();
-  }
-
-  private loadFromStorage(): void {
-    const storedHabits = localStorage.getItem(this.HABITS_KEY);
-    const legacyHabits = localStorage.getItem(this.LEGACY_HABITS_KEY);
-    const storedMood = localStorage.getItem(this.MOOD_KEY);
-    const storedEntries = localStorage.getItem(this.ENTRIES_KEY);
-    const storedGamification = localStorage.getItem(this.GAMIFICATION_KEY);
-    const storedIntegrations = localStorage.getItem(this.INTEGRATIONS_KEY);
-
-    if (storedHabits) {
-      this.habitsSubject.next(this.normalizeHabits(JSON.parse(storedHabits)));
-    } else if (legacyHabits) {
-      const migrated = this.normalizeHabits(JSON.parse(legacyHabits));
-      this.habitsSubject.next(migrated);
-      this.saveHabitsToStorage();
-    } else {
-      this.initializeSampleData();
-    }
-
-    if (storedMood) {
-      this.moodEntriesSubject.next(JSON.parse(storedMood));
-    } else {
-      this.initializeSampleMoodData();
-    }
-
-    if (storedEntries) {
-      this.habitEntriesSubject.next(JSON.parse(storedEntries));
-    } else {
-      this.buildEntriesFromCompletions();
-    }
-
-    if (storedGamification) {
-      this.gamificationSubject.next(JSON.parse(storedGamification));
-    }
-
-    if (storedIntegrations) {
-      this.integrationStatusSubject.next(JSON.parse(storedIntegrations));
-    }
-
     this.recomputeGamification();
   }
 
-  private normalizeHabits(rawHabits: any[]): Habit[] {
-    return rawHabits.map((habit, index) => ({
-      id: String(habit.id ?? Date.now() + index),
-      name: habit.name ?? `Habit ${index + 1}`,
-      icon: habit.icon ?? '⭐',
-      color: habit.color ?? '#1f9d8b',
-      goal: Number(habit.goal ?? 20),
-      type: habit.type ?? 'boolean',
-      targetValue: Number(habit.targetValue ?? 1),
-      unit: habit.unit ?? (habit.type === 'duration' ? 'min' : 'times'),
-      frequencyPerWeek: Number(habit.frequencyPerWeek ?? 5),
-      weekDays: Array.isArray(habit.weekDays) && habit.weekDays.length ? habit.weekDays : [1, 2, 3, 4, 5, 6, 0],
-      reminderTime: habit.reminderTime ?? '08:30',
-      difficulty: habit.difficulty ?? 'medium',
-      archived: Boolean(habit.archived ?? false),
-      createdAt: new Date(habit.createdAt ?? new Date()),
-      completedDates: Array.isArray(habit.completedDates) ? habit.completedDates : []
-    }));
-  }
+  private loadFromStorage(): void {
+    const stateRaw = localStorage.getItem(this.STATE_KEY);
+    if (stateRaw) {
+      const state = JSON.parse(stateRaw) as HabitFlowStateV1;
+      this.earnedBadges = state.gamification?.earnedBadges ?? {};
+      this.habitsSubject.next(this.normalizeHabits(state.habits ?? []));
+      return;
+    }
 
-  private saveHabitsToStorage(): void {
-    localStorage.setItem(this.HABITS_KEY, JSON.stringify(this.habitsSubject.value));
-  }
+    const stored = localStorage.getItem(this.HABITS_KEY) ?? localStorage.getItem(this.LEGACY_HABITS_KEY);
+    if (stored) {
+      this.earnedBadges = {};
+      this.habitsSubject.next(this.normalizeHabits(JSON.parse(stored)));
+      // Migrate old storage format into the new structured state.
+      this.persistState();
+      return;
+    }
 
-  private saveMoodToStorage(): void {
-    localStorage.setItem(this.MOOD_KEY, JSON.stringify(this.moodEntriesSubject.value));
-  }
-
-  private saveEntriesToStorage(): void {
-    localStorage.setItem(this.ENTRIES_KEY, JSON.stringify(this.habitEntriesSubject.value));
-  }
-
-  private saveGamificationToStorage(): void {
-    localStorage.setItem(this.GAMIFICATION_KEY, JSON.stringify(this.gamificationSubject.value));
-  }
-
-  private saveIntegrationsToStorage(): void {
-    localStorage.setItem(this.INTEGRATIONS_KEY, JSON.stringify(this.integrationStatusSubject.value));
-  }
-
-  private initializeSampleData(): void {
-    const sampleHabits: Habit[] = [
+    const today = new Date();
+    this.habitsSubject.next([
       {
         id: '1',
-        name: 'Morning Deep Work',
-        icon: '💻',
-        color: '#0ea5e9',
-        goal: 22,
+        name: 'Read 20 minutes',
+        icon: '📚',
+        color: '#1f6feb',
+        goal: 20,
         type: 'duration',
-        targetValue: 90,
+        targetValue: 20,
         unit: 'min',
-        frequencyPerWeek: 5,
-        weekDays: [1, 2, 3, 4, 5],
-        reminderTime: '08:00',
-        difficulty: 'hard',
+        frequencyPerWeek: 7,
+        weekDays: [0, 1, 2, 3, 4, 5, 6],
+        reminderTime: '20:00',
+        difficulty: 'easy',
+        frequencyType: 'daily',
+        category: 'Learning',
         archived: false,
-        createdAt: new Date('2026-01-01'),
-        completedDates: this.generateSampleCompletions(0.8)
+        createdAt: today,
+        completedDates: []
       },
       {
         id: '2',
-        name: 'Meditation',
-        icon: '🧘',
-        color: '#10b981',
-        goal: 28,
-        type: 'duration',
-        targetValue: 15,
-        unit: 'min',
-        frequencyPerWeek: 7,
-        weekDays: [0, 1, 2, 3, 4, 5, 6],
-        reminderTime: '07:00',
-        difficulty: 'easy',
-        archived: false,
-        createdAt: new Date('2026-01-01'),
-        completedDates: this.generateSampleCompletions(0.75)
-      },
-      {
-        id: '3',
-        name: 'Hydration',
-        icon: '💧',
-        color: '#3b82f6',
-        goal: 31,
-        type: 'count',
-        targetValue: 8,
-        unit: 'glasses',
-        frequencyPerWeek: 7,
-        weekDays: [0, 1, 2, 3, 4, 5, 6],
-        reminderTime: '10:00',
-        difficulty: 'medium',
-        archived: false,
-        createdAt: new Date('2026-01-01'),
-        completedDates: this.generateSampleCompletions(0.85)
-      },
-      {
-        id: '4',
         name: 'Workout',
-        icon: '🏋️',
-        color: '#ef4444',
-        goal: 18,
+        icon: '💪',
+        color: '#f97316',
+        goal: 16,
         type: 'boolean',
         targetValue: 1,
         unit: 'session',
         frequencyPerWeek: 4,
         weekDays: [1, 2, 4, 6],
-        reminderTime: '18:30',
-        difficulty: 'hard',
+        reminderTime: '18:00',
+        difficulty: 'medium',
+        frequencyType: 'custom',
+        category: 'Fitness',
         archived: false,
-        createdAt: new Date('2026-01-01'),
-        completedDates: this.generateSampleCompletions(0.7)
+        createdAt: today,
+        completedDates: []
       }
-    ];
+    ]);
 
-    this.habitsSubject.next(sampleHabits);
-    this.saveHabitsToStorage();
-    this.buildEntriesFromCompletions();
+    this.persistState();
   }
 
-  private generateSampleCompletions(rate: number): string[] {
-    const completions: string[] = [];
-    const today = new Date();
-    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-
-    for (let i = 1; i <= Math.min(today.getDate(), daysInMonth); i++) {
-      if (Math.random() < rate) {
-        const date = new Date(today.getFullYear(), today.getMonth(), i);
-        completions.push(date.toISOString().split('T')[0]);
-      }
-    }
-    return completions;
+  private normalizeHabits(rawHabits: any[]): Habit[] {
+    return rawHabits.map((habit, index) => ({
+      id: String(habit.id ?? Date.now() + index),
+      name: String(habit.name ?? `Habit ${index + 1}`),
+      icon: String(habit.icon ?? '⭐'),
+      color: String(habit.color ?? '#0ea5e9'),
+      goal: Number(habit.goal ?? 20),
+      type: habit.type ?? 'boolean',
+      targetValue: Number(habit.targetValue ?? 1),
+      unit: String(habit.unit ?? 'times'),
+      frequencyPerWeek: Number(habit.frequencyPerWeek ?? 5),
+      weekDays: Array.isArray(habit.weekDays) && habit.weekDays.length ? habit.weekDays : [1, 2, 3, 4, 5, 6, 0],
+      reminderTime: habit.reminderTime ?? '08:30',
+      difficulty: habit.difficulty ?? 'medium',
+      // Back-compat migration:
+      // - legacy `category` was actually frequency type ('daily' | 'weekly')
+      // - new field is `frequencyType`, while grouping category becomes free-form string
+      frequencyType: habit.frequencyType ?? (habit.category === 'weekly' ? 'weekly' : habit.category === 'daily' ? 'daily' : 'custom'),
+      category: typeof habit.category === 'string' && !['daily', 'weekly'].includes(habit.category) ? habit.category : 'General',
+      archived: Boolean(habit.archived ?? false),
+      createdAt: new Date(habit.createdAt ?? new Date()),
+      completedDates: Array.isArray(habit.completedDates) ? habit.completedDates : [],
+      lastCompletedDate: habit.lastCompletedDate ?? this.computeLastCompletedDate(Array.isArray(habit.completedDates) ? habit.completedDates : [])
+    }));
   }
 
-  private initializeSampleMoodData(): void {
-    const entries: MoodEntry[] = [];
-    const today = new Date();
-
-    for (let i = 0; i < 30; i++) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      entries.push({
-        date: date.toISOString().split('T')[0],
-        mood: Math.floor(Math.random() * 4) + 6,
-        motivation: Math.floor(Math.random() * 4) + 5
-      });
-    }
-
-    this.moodEntriesSubject.next(entries.reverse());
-    this.saveMoodToStorage();
+  private computeLastCompletedDate(completedDates: string[]): string | undefined {
+    const dateKeys = completedDates.filter(Boolean);
+    if (!dateKeys.length) return undefined;
+    // Date keys are YYYY-MM-DD so lexical order matches chronological order.
+    return dateKeys.slice().sort().at(-1);
   }
 
-  private buildEntriesFromCompletions(): void {
-    const entries: HabitEntry[] = [];
-    this.habitsSubject.value.forEach((habit) => {
-      habit.completedDates.forEach((date) => {
-        entries.push({
-          habitId: habit.id,
-          date,
-          value: habit.targetValue
-        });
-      });
-    });
-    this.habitEntriesSubject.next(entries);
-    this.saveEntriesToStorage();
+  private persistState(): void {
+    const state: HabitFlowStateV1 = {
+      version: 1,
+      habits: this.habitsSubject.value,
+      gamification: {
+        earnedBadges: this.earnedBadges
+      },
+      updatedAt: new Date().toISOString()
+    };
+
+    localStorage.setItem(this.STATE_KEY, JSON.stringify(state));
+  }
+
+  private toDateKey(dateInput: Date | string): string {
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : new Date(dateInput);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   getHabits(): Habit[] {
@@ -261,29 +171,29 @@ export class HabitService {
   }
 
   getActiveHabits(): Habit[] {
-    return this.habitsSubject.value.filter((h) => !h.archived);
+    return this.habitsSubject.value.filter((habit) => !habit.archived);
   }
 
   addHabit(habit: Omit<Habit, 'id' | 'createdAt' | 'completedDates' | 'archived'>): void {
-    const newHabit: Habit = {
+    const next: Habit = {
       ...habit,
       id: Date.now().toString(),
-      createdAt: new Date(),
       archived: false,
-      completedDates: []
+      createdAt: new Date(),
+      completedDates: [],
+      lastCompletedDate: undefined
     };
 
-    const habits = [...this.habitsSubject.value, newHabit];
-    this.habitsSubject.next(habits);
-    this.saveHabitsToStorage();
+    this.habitsSubject.next([...this.habitsSubject.value, next]);
+    this.persistState();
+    this.recomputeGamification();
   }
 
   updateHabit(id: string, updates: Partial<Habit>): void {
-    const habits = this.habitsSubject.value.map((h) =>
-      h.id === id ? { ...h, ...updates } : h
-    );
-    this.habitsSubject.next(habits);
-    this.saveHabitsToStorage();
+    const next = this.habitsSubject.value.map((habit) => (habit.id === id ? { ...habit, ...updates } : habit));
+    this.habitsSubject.next(next);
+    this.persistState();
+    this.recomputeGamification();
   }
 
   archiveHabit(id: string): void {
@@ -291,138 +201,148 @@ export class HabitService {
   }
 
   deleteHabit(id: string): void {
-    const habits = this.habitsSubject.value.filter((h) => h.id !== id);
-    const entries = this.habitEntriesSubject.value.filter((entry) => entry.habitId !== id);
-    this.habitsSubject.next(habits);
-    this.habitEntriesSubject.next(entries);
-    this.saveHabitsToStorage();
-    this.saveEntriesToStorage();
-  }
-
-  toggleHabitCompletion(habitId: string, date: string, value?: number, note?: string): void {
-    const habit = this.habitsSubject.value.find((h) => h.id === habitId);
-    if (!habit) {
-      return;
-    }
-
-    const effectiveValue = value ?? habit.targetValue;
-    const isCompleted = this.isHabitCompleted(habitId, date);
-
-    const habits = this.habitsSubject.value.map((currentHabit) => {
-      if (currentHabit.id !== habitId) {
-        return currentHabit;
-      }
-
-      const completedDates = [...currentHabit.completedDates];
-      const index = completedDates.indexOf(date);
-
-      if (isCompleted && index > -1) {
-        completedDates.splice(index, 1);
-      } else if (!isCompleted) {
-        completedDates.push(date);
-      }
-
-      return { ...currentHabit, completedDates };
-    });
-
-    const entries = [...this.habitEntriesSubject.value];
-    const existingEntryIndex = entries.findIndex((entry) => entry.habitId === habitId && entry.date === date);
-
-    if (isCompleted && existingEntryIndex > -1) {
-      entries.splice(existingEntryIndex, 1);
-    } else {
-      const nextEntry: HabitEntry = { habitId, date, value: effectiveValue, note };
-      if (existingEntryIndex > -1) {
-        entries[existingEntryIndex] = nextEntry;
-      } else {
-        entries.push(nextEntry);
-      }
-    }
-
-    this.habitsSubject.next(habits);
-    this.habitEntriesSubject.next(entries);
-    this.saveHabitsToStorage();
-    this.saveEntriesToStorage();
+    const next = this.habitsSubject.value.filter((habit) => habit.id !== id);
+    this.habitsSubject.next(next);
+    this.persistState();
     this.recomputeGamification();
-  }
-
-  useStreakShield(habitId: string, date: string): boolean {
-    const game = this.gamificationSubject.value;
-    if (game.streakShields <= 0) {
-      return false;
-    }
-
-    this.toggleHabitCompletion(habitId, date, 1, 'Recovered with streak shield');
-    const updated: GamificationStats = {
-      ...game,
-      streakShields: game.streakShields - 1
-    };
-    this.gamificationSubject.next(updated);
-    this.saveGamificationToStorage();
-    return true;
-  }
-
-  isHabitCompleted(habitId: string, date: string): boolean {
-    const habit = this.habitsSubject.value.find((h) => h.id === habitId);
-    return habit ? habit.completedDates.includes(date) : false;
   }
 
   isHabitScheduledForDay(habit: Habit, date: Date): boolean {
     return habit.weekDays.includes(date.getDay());
   }
 
+  isHabitCompleted(habitId: string, dateInput: Date | string): boolean {
+    const date = this.toDateKey(dateInput);
+    const habit = this.habitsSubject.value.find((item) => item.id === habitId);
+    return Boolean(habit?.completedDates.includes(date));
+  }
+
+  // Central toggle handler that also returns points gained for animated UI feedback.
+  toggleHabitCompletion(habitId: string, dateInput: Date | string = new Date()): CompletionResult {
+    const date = this.toDateKey(dateInput);
+    const habits = this.habitsSubject.value;
+    const habit = habits.find((item) => item.id === habitId);
+
+    if (!habit) {
+      return { completed: false, pointsEarned: 0 };
+    }
+
+    // Only allow toggling for days this habit is actually scheduled for.
+    if (!this.isHabitScheduledForDay(habit, typeof dateInput === 'string' ? new Date(dateInput) : dateInput)) {
+      return { completed: false, pointsEarned: 0 };
+    }
+
+    const wasCompleted = habit.completedDates.includes(date);
+    let pointsEarned = 0;
+
+    const nextHabits = habits.map((currentHabit) => {
+      if (currentHabit.id !== habitId) {
+        return currentHabit;
+      }
+
+      const completedDates = [...currentHabit.completedDates];
+      const dateIndex = completedDates.indexOf(date);
+
+      if (wasCompleted && dateIndex > -1) {
+        completedDates.splice(dateIndex, 1);
+      }
+
+      if (!wasCompleted && dateIndex === -1) {
+        completedDates.push(date);
+      }
+
+      const lastCompletedDate = wasCompleted ? this.computeLastCompletedDate(completedDates) : date;
+
+      return {
+        ...currentHabit,
+        completedDates,
+        lastCompletedDate
+      };
+    });
+
+    if (!wasCompleted) {
+      pointsEarned += 10;
+      const updatedHabit = nextHabits.find((item) => item.id === habitId);
+      if (updatedHabit) {
+        const currentStreak = this.calculateCurrentStreak(updatedHabit);
+        if (currentStreak > 0 && currentStreak % 7 === 0) {
+          pointsEarned += 50;
+        }
+      }
+    }
+
+    this.habitsSubject.next(nextHabits);
+    this.persistState();
+    this.recomputeGamification();
+
+    return {
+      completed: !wasCompleted,
+      pointsEarned
+    };
+  }
+
   getDueHabitsForDate(date: Date): Habit[] {
     return this.getActiveHabits().filter((habit) => this.isHabitScheduledForDay(habit, date));
   }
 
-  getHabitStats(habitId: string, month: number, year: number): HabitStats {
-    const habit = this.habitsSubject.value.find((h) => h.id === habitId);
+  getDailyCompletion(date: Date): { due: number; completed: number; percent: number } {
+    const dateKey = this.toDateKey(date);
+    const dueHabits = this.getDueHabitsForDate(date);
+    const completed = dueHabits.filter((habit) => habit.completedDates.includes(dateKey)).length;
+    const due = dueHabits.length;
+
+    return {
+      due,
+      completed,
+      percent: due === 0 ? 0 : Math.round((completed / due) * 100)
+    };
+  }
+
+  getHabitProgress(habitId: string): HabitProgress {
+    const habit = this.habitsSubject.value.find((item) => item.id === habitId);
     if (!habit) {
-      return { habitId, completionRate: 0, currentStreak: 0, longestStreak: 0, completedCount: 0 };
+      return {
+        habitId,
+        currentStreak: 0,
+        longestStreak: 0,
+        badge: 'None',
+        totalCompletions: 0
+      };
     }
 
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const monthDates = Array.from({ length: daysInMonth }, (_, i) => {
-      const date = new Date(year, month, i + 1);
-      return date.toISOString().split('T')[0];
-    });
-
-    const scheduledDates = monthDates.filter((dateString) => {
-      const date = new Date(dateString);
-      return habit.weekDays.includes(date.getDay());
-    });
-
-    const completedThisMonth = scheduledDates.filter((date) => habit.completedDates.includes(date));
-    const expected = Math.max(1, Math.min(habit.goal, scheduledDates.length));
-
-    const completionRate = (completedThisMonth.length / expected) * 100;
     const currentStreak = this.calculateCurrentStreak(habit);
     const longestStreak = this.calculateLongestStreak(habit);
 
     return {
       habitId,
-      completionRate: Math.min(completionRate, 100),
       currentStreak,
       longestStreak,
-      completedCount: completedThisMonth.length
+      badge: this.getBadgeFromStreak(longestStreak),
+      totalCompletions: habit.completedDates.length
     };
   }
 
-  private calculateCurrentStreak(habit: Habit): number {
+  getAllHabitProgress(): HabitProgress[] {
+    return this.getActiveHabits().map((habit) => this.getHabitProgress(habit.id));
+  }
+
+  // Reusable streak function used by both points and UI badges.
+  calculateCurrentStreak(habit: Habit): number {
+    const completedSet = new Set(habit.completedDates);
     let streak = 0;
     const today = new Date();
 
     for (let i = 0; i < 365; i++) {
       const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
+      date.setDate(today.getDate() - i);
 
       if (!this.isHabitScheduledForDay(habit, date)) {
         continue;
       }
 
-      if (habit.completedDates.includes(dateStr)) {
-        streak++;
+      const key = this.toDateKey(date);
+      if (completedSet.has(key)) {
+        streak += 1;
       } else {
         break;
       }
@@ -431,283 +351,331 @@ export class HabitService {
     return streak;
   }
 
-  private calculateLongestStreak(habit: Habit): number {
-    const sortedDates = [...habit.completedDates].sort();
-    if (!sortedDates.length) {
-      return 0;
-    }
+  // Longest streak only advances on scheduled days for this habit.
+  calculateLongestStreak(habit: Habit): number {
+    const completedSet = new Set(habit.completedDates);
+    let longest = 0;
+    let current = 0;
 
-    let longestStreak = 1;
-    let currentStreak = 1;
+    const start = new Date(habit.createdAt);
+    const end = new Date();
 
-    for (let i = 1; i < sortedDates.length; i++) {
-      const prevDate = new Date(sortedDates[i - 1]);
-      const currDate = new Date(sortedDates[i]);
-      const diffDays = Math.floor((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+    for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+      if (!this.isHabitScheduledForDay(habit, date)) {
+        continue;
+      }
 
-      if (diffDays <= 2) {
-        currentStreak++;
+      const key = this.toDateKey(date);
+      if (completedSet.has(key)) {
+        current += 1;
+        longest = Math.max(longest, current);
       } else {
-        longestStreak = Math.max(longestStreak, currentStreak);
-        currentStreak = 1;
+        current = 0;
       }
     }
 
-    return Math.max(longestStreak, currentStreak);
+    return longest;
   }
 
-  addMoodEntry(entry: MoodEntry): void {
-    const entries = [...this.moodEntriesSubject.value];
-    const existingIndex = entries.findIndex((e) => e.date === entry.date);
+  // Badge thresholds required by the product spec.
+  getBadgeFromStreak(streak: number): HabitBadge {
+    if (streak >= 30) {
+      return 'Master';
+    }
+    if (streak >= 7) {
+      return 'Consistent';
+    }
+    if (streak >= 3) {
+      return 'Beginner';
+    }
+    return 'None';
+  }
 
-    if (existingIndex > -1) {
-      entries[existingIndex] = entry;
-    } else {
-      entries.push(entry);
+  calculateLevel(totalPoints: number): number {
+    return Math.floor(totalPoints / 100);
+  }
+
+  private buildGlobalBadges(progressByHabit: HabitProgress[]): Badge[] {
+    const longest = Math.max(0, ...progressByHabit.map((item) => item.longestStreak));
+    const badges: Badge[] = [];
+
+    if (longest >= 3) {
+      badges.push({ id: 'beginner', label: 'Beginner', description: 'Reached a 3-day streak', icon: '🥉' });
+    }
+    if (longest >= 7) {
+      badges.push({ id: 'consistent', label: 'Consistent', description: 'Reached a 7-day streak', icon: '🥈' });
+    }
+    if (longest >= 30) {
+      badges.push({ id: 'master', label: 'Master', description: 'Reached a 30-day streak', icon: '🥇' });
     }
 
-    this.moodEntriesSubject.next(entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
-    this.saveMoodToStorage();
+    return badges;
   }
 
-  getMoodEntries(): MoodEntry[] {
-    return this.moodEntriesSubject.value;
+  private calculateTotalPoints(progressByHabit: HabitProgress[]): number {
+    let points = 0;
+
+    for (const progress of progressByHabit) {
+      points += progress.totalCompletions * 10;
+      points += Math.floor(progress.longestStreak / 7) * 50;
+    }
+
+    return points;
   }
 
-  getCompletionRateLastNDays(days: number): number {
+  getWeeklyStats(): { date: string; completionRate: number }[] {
+    const stats: { date: string; completionRate: number }[] = [];
     const today = new Date();
-    let due = 0;
-    let completed = 0;
 
-    for (let i = 0; i < days; i++) {
+    for (let i = 6; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(today.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-
-      const dueHabits = this.getDueHabitsForDate(date);
-      due += dueHabits.length;
-      completed += dueHabits.filter((habit) => habit.completedDates.includes(dateStr)).length;
+      const completion = this.getDailyCompletion(date);
+      stats.push({
+        date: this.toDateKey(date),
+        completionRate: completion.percent
+      });
     }
 
-    return due > 0 ? Math.round((completed / due) * 100) : 0;
+    return stats;
   }
 
-  getWeekdayCompletionDistribution(month: number, year: number): number[] {
-    const weekdayCounts = Array(7).fill(0);
-    const weekdayCompleted = Array(7).fill(0);
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month, day);
-      const dateStr = date.toISOString().split('T')[0];
-      const weekday = date.getDay();
-      const dueHabits = this.getDueHabitsForDate(date);
-
-      weekdayCounts[weekday] += dueHabits.length;
-      weekdayCompleted[weekday] += dueHabits.filter((habit) => habit.completedDates.includes(dateStr)).length;
-    }
-
-    return weekdayCompleted.map((value, i) =>
-      weekdayCounts[i] > 0 ? Math.round((value / weekdayCounts[i]) * 100) : 0
-    );
-  }
-
-  getLast28DayHeatmap(): Array<{ date: string; score: number }> {
+  getMonthlyStats(monthsBack = 6): { month: string; completionRate: number }[] {
+    const stats: { month: string; completionRate: number }[] = [];
     const today = new Date();
-    const result: Array<{ date: string; score: number }> = [];
+    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
-    for (let i = 27; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(today.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-      const dueHabits = this.getDueHabitsForDate(date);
-      const completed = dueHabits.filter((habit) => habit.completedDates.includes(dateStr)).length;
-      const score = dueHabits.length > 0 ? Math.round((completed / dueHabits.length) * 4) : 0;
-      result.push({ date: dateStr, score });
+    for (let m = monthsBack - 1; m >= 0; m--) {
+      const monthStart = new Date(end.getFullYear(), end.getMonth() - m, 1);
+      const monthEnd = new Date(end.getFullYear(), end.getMonth() - m + 1, 0);
+
+      let dueTotal = 0;
+      let completedTotal = 0;
+
+      for (let d = new Date(monthStart); d <= monthEnd; d.setDate(d.getDate() + 1)) {
+        const { due, completed } = this.getDailyCompletion(d);
+        dueTotal += due;
+        completedTotal += completed;
+      }
+
+      const completionRate = dueTotal === 0 ? 0 : Math.round((completedTotal / dueTotal) * 100);
+      const label = monthStart.toLocaleDateString(undefined, { month: 'short' });
+      stats.push({ month: label, completionRate });
     }
 
-    return result;
+    return stats;
   }
 
-  getDashboardInsights(): DashboardInsights {
-    const habits = this.getActiveHabits();
-    const completionRateLast7Days = this.getCompletionRateLastNDays(7);
-    const completionRateLast30Days = this.getCompletionRateLastNDays(30);
-    const weekdayDistribution = this.getWeekdayCompletionDistribution(new Date().getMonth(), new Date().getFullYear());
+  getActivityHeatmapData(weeks = 52): { dateKey: string; completionRate: number | null; dueCount: number }[] {
+    const results: { dateKey: string; completionRate: number | null; dueCount: number }[] = [];
+    const now = new Date();
+    const start = new Date(now);
+    start.setDate(now.getDate() - weeks * 7 + 1);
 
-    const bestDayIndex = weekdayDistribution.indexOf(Math.max(...weekdayDistribution));
-    const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-    const ranked = habits
-      .map((habit) => ({ habit, stats: this.getHabitStats(habit.id, new Date().getMonth(), new Date().getFullYear()) }))
-      .sort((a, b) => b.stats.completionRate - a.stats.completionRate);
-
-    const consistencyScore = Math.round(completionRateLast7Days * 0.6 + completionRateLast30Days * 0.4);
-    const best = ranked[0]?.habit?.name ?? 'No habits yet';
-
-    let aiCoachMessage = 'Your consistency is building well. Keep your strongest habit as an anchor.';
-    if (completionRateLast7Days < 50) {
-      aiCoachMessage = 'AI Coach: You are overloaded this week. Reduce one hard habit and protect momentum.';
-    } else if (completionRateLast7Days > 85) {
-      aiCoachMessage = 'AI Coach: Excellent execution. Increase one habit target by 10% to keep growth steady.';
+    for (let d = new Date(start); d <= now; d.setDate(d.getDate() + 1)) {
+      const { due, completed, percent } = this.getDailyCompletion(d);
+      results.push({
+        dateKey: this.toDateKey(d),
+        completionRate: due === 0 ? null : percent,
+        dueCount: due,
+      });
     }
 
-    return {
-      consistencyScore,
-      bestDay: weekdays[bestDayIndex],
-      mostConsistentHabitName: best,
-      completionRateLast7Days,
-      completionRateLast30Days,
-      aiCoachMessage
+    return results;
+  }
+
+  getWeekendMissInsight(): DashboardInsights {
+    const insights: DashboardInsights = {
+      consistencyScore: 0,
+      bestDay: '',
+      mostConsistentHabitName: '',
+      completionRateLast7Days: 0,
+      completionRateLast30Days: 0,
+      aiCoachMessage: ''
     };
+
+    const today = new Date();
+    const start = new Date(today);
+    start.setDate(today.getDate() - 59); // last 60 days
+
+    // weekday: 0 (Sun) ... 6 (Sat)
+    const dueByWeekday = new Array(7).fill(0);
+    const completedByWeekday = new Array(7).fill(0);
+
+    for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
+      const { due, completed } = this.getDailyCompletion(d);
+      const wd = d.getDay();
+      dueByWeekday[wd] += due;
+      completedByWeekday[wd] += completed;
+    }
+
+    const completionRate = dueByWeekday.map((due, wd) => {
+      if (due === 0) return 0;
+      return Math.round((completedByWeekday[wd] / due) * 100);
+    });
+
+    const weekdayAvg = (completionRate[1] + completionRate[2] + completionRate[3] + completionRate[4] + completionRate[5]) / 5;
+    const weekendAvg = (completionRate[0] + completionRate[6]) / 2;
+
+    const completionRateLast7Days = this.getWeeklyStats().reduce((sum, x) => sum + x.completionRate, 0) / 7;
+    const completionRateLast30Days = (() => {
+      let dueTotal = 0;
+      let completedTotal = 0;
+      const t30 = new Date(today);
+      t30.setDate(today.getDate() - 29);
+      for (let d = new Date(t30); d <= today; d.setDate(d.getDate() + 1)) {
+        const { due, completed } = this.getDailyCompletion(d);
+        dueTotal += due;
+        completedTotal += completed;
+      }
+      return dueTotal === 0 ? 0 : Math.round((completedTotal / dueTotal) * 100);
+    })();
+
+    insights.completionRateLast7Days = Math.round(completionRateLast7Days);
+    insights.completionRateLast30Days = completionRateLast30Days;
+    insights.consistencyScore = Math.round((insights.completionRateLast7Days * 0.6 + insights.completionRateLast30Days * 0.4));
+
+    const bestWdIndex = completionRate.indexOf(Math.max(...completionRate));
+    insights.bestDay = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][bestWdIndex];
+
+    // Determine most consistent habit by completion rate over last 30 days.
+    let mostConsistent: { name: string; rate: number } = { name: '', rate: -1 };
+    for (const habit of this.getActiveHabits()) {
+      const completedSet = new Set(habit.completedDates);
+      let dueTotal = 0;
+      let completedTotal = 0;
+      const t30 = new Date(today);
+      t30.setDate(today.getDate() - 29);
+      for (let d = new Date(t30); d <= today; d.setDate(d.getDate() + 1)) {
+        if (!this.isHabitScheduledForDay(habit, d)) continue;
+        dueTotal += 1;
+        const key = this.toDateKey(d);
+        if (completedSet.has(key)) completedTotal += 1;
+      }
+      const rate = dueTotal === 0 ? 0 : Math.round((completedTotal / dueTotal) * 100);
+      if (rate > mostConsistent.rate) {
+        mostConsistent = { name: habit.name, rate };
+      }
+    }
+    insights.mostConsistentHabitName = mostConsistent.name;
+
+    if (weekendAvg < weekdayAvg - 12) {
+      insights.aiCoachMessage = `You often miss habits on weekends. Try shifting your plan for Saturday/Sunday or adding a smaller “micro-habit” just for those days.`;
+    } else if (insights.completionRateLast7Days >= 75) {
+      insights.aiCoachMessage = `Strong momentum. Your completion rate is trending high—keep the neon streak alive.`;
+    } else {
+      insights.aiCoachMessage = `You’re building consistency. Focus on finishing one habit early each day to lift your overall completion.`;
+    }
+
+    return insights;
+  }
+
+  private isPerfectDay(date: Date): boolean {
+    const { due, completed } = this.getDailyCompletion(date);
+    return due > 0 && completed === due;
+  }
+
+  private isPerfectWeek(date: Date): boolean {
+    // Week starts on Monday (local).
+    const day = date.getDay(); // 0 Sun - 6 Sat
+    const diffToMonday = (day + 6) % 7;
+    const weekStart = new Date(date);
+    weekStart.setDate(date.getDate() - diffToMonday);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+
+    let dueTotal = 0;
+    for (let d = new Date(weekStart); d <= weekEnd; d.setDate(d.getDate() + 1)) {
+      const { due, completed } = this.getDailyCompletion(d);
+      dueTotal += due;
+      if (due > 0 && completed !== due) return false;
+    }
+
+    return dueTotal > 0;
+  }
+
+  private awardBadgeOnce(id: string, badge: Omit<Badge, 'earnedAt'>): void {
+    if (this.earnedBadges[id]) return;
+    this.earnedBadges[id] = { ...badge, earnedAt: new Date().toISOString() };
   }
 
   private recomputeGamification(): void {
-    const habits = this.getActiveHabits();
-    const now = new Date();
-    const month = now.getMonth();
-    const year = now.getFullYear();
+    const today = new Date();
+    const progressByHabit = this.getAllHabitProgress();
+    const totalPoints = this.calculateTotalPoints(progressByHabit);
+    const level = this.calculateLevel(totalPoints);
+    const daily = this.getDailyCompletion(today);
+    const todayKey = this.toDateKey(today);
 
-    const completedCount = habits.reduce((acc, habit) => {
-      const stats = this.getHabitStats(habit.id, month, year);
-      return acc + stats.completedCount;
+    const perfectDay = this.isPerfectDay(today);
+    const perfectWeek = this.isPerfectWeek(today);
+
+    // Global achievements
+    const any7Day = progressByHabit.some((p) => p.longestStreak >= 7);
+    const any30Day = progressByHabit.some((p) => p.longestStreak >= 30);
+
+    if (any7Day) {
+      this.awardBadgeOnce('streak_7', {
+        id: 'streak_7',
+        label: '7-day Streak',
+        description: 'Reached a 7-day streak (across habits).',
+        icon: '🔥'
+      });
+    }
+
+    if (any30Day) {
+      this.awardBadgeOnce('streak_30', {
+        id: 'streak_30',
+        label: '30-day Streak',
+        description: 'Reached a 30-day streak (across habits).',
+        icon: '🏆'
+      });
+    }
+
+    if (perfectDay) {
+      this.awardBadgeOnce('perfect_day', {
+        id: 'perfect_day',
+        label: 'Perfect Day',
+        description: 'Completed every habit due today.',
+        icon: '✨'
+      });
+    }
+
+    if (perfectWeek) {
+      this.awardBadgeOnce('perfect_week', {
+        id: 'perfect_week',
+        label: 'Perfect Week',
+        description: 'Completed every habit due this week.',
+        icon: '💎'
+      });
+    }
+
+    const todayPoints = this.getActiveHabits().reduce((sum, habit) => {
+      return sum + (habit.completedDates.includes(todayKey) ? 10 : 0);
     }, 0);
 
-    const bonus = this.getCompletionRateLastNDays(7) >= 80 ? 100 : 0;
-    const xp = completedCount * 10 + bonus;
-    const level = Math.max(1, Math.floor(xp / 300) + 1);
+    const levelProgressPercent = (() => {
+      const inLevel = totalPoints % 100;
+      return Math.max(0, Math.round((inLevel / 100) * 100));
+    })();
+    const nextLevelPoints = (level + 1) * 100;
 
-    const badges: Badge[] = [];
+    // Persist earned badges when they change.
+    // (We do this lazily during recompute to keep toggling snappy.)
+    this.persistState();
 
-    if (this.getCompletionRateLastNDays(7) >= 80) {
-      badges.push({
-        id: 'focus-week',
-        label: 'Focus Week',
-        description: 'Completed 80%+ due habits in 7 days',
-        icon: '⚡',
-        earnedAt: new Date().toISOString()
-      });
-    }
-
-    if (habits.some((habit) => this.getHabitStats(habit.id, month, year).currentStreak >= 7)) {
-      badges.push({
-        id: 'streak-7',
-        label: '7-Day Streak',
-        description: 'Maintained one habit for at least 7 scheduled days',
-        icon: '🔥',
-        earnedAt: new Date().toISOString()
-      });
-    }
-
-    if (level >= 5) {
-      badges.push({
-        id: 'level-5',
-        label: 'Level 5 Achiever',
-        description: 'Reached level 5',
-        icon: '🏆',
-        earnedAt: new Date().toISOString()
-      });
-    }
-
-    const existing = this.gamificationSubject.value;
-    const updated: GamificationStats = {
-      ...existing,
-      xp,
+    this.gamificationSubject.next({
+      totalPoints,
+      todayPoints,
       level,
-      weeklyQuestProgress: Math.min(existing.weeklyQuestTarget, Math.floor(this.getCompletionRateLastNDays(7) / 100 * existing.weeklyQuestTarget)),
-      badges
-    };
-
-    this.gamificationSubject.next(updated);
-    this.saveGamificationToStorage();
-  }
-
-  getGamificationStats(): GamificationStats {
-    return this.gamificationSubject.value;
-  }
-
-  async enableBrowserNotifications(): Promise<boolean> {
-    if (!('Notification' in window)) {
-      return false;
-    }
-
-    const permission = await Notification.requestPermission();
-    const status = this.integrationStatusSubject.value;
-    this.integrationStatusSubject.next({
-      ...status,
-      browserNotificationsEnabled: permission === 'granted'
+      levelProgressPercent,
+      nextLevelPoints,
+      dailyCompletionPercent: daily.percent,
+      completedToday: daily.completed,
+      dueToday: daily.due,
+      badges: Object.values(this.earnedBadges),
+      perfectDay,
+      perfectWeek
     });
-    this.saveIntegrationsToStorage();
-    return permission === 'granted';
-  }
-
-  sendDailyReminderPreview(): void {
-    const status = this.integrationStatusSubject.value;
-    if (!status.browserNotificationsEnabled || !('Notification' in window)) {
-      return;
-    }
-
-    const dueCount = this.getDueHabitsForDate(new Date()).length;
-    new Notification('Habit Tracker Reminder', {
-      body: `You have ${dueCount} habits due today. Keep the streak alive.`,
-      icon: 'favicon.svg'
-    });
-  }
-
-  getIntegrationStatus(): IntegrationStatus {
-    return this.integrationStatusSubject.value;
-  }
-
-  exportCalendarICS(): void {
-    const habits = this.getActiveHabits();
-    const today = new Date();
-    const next30: Date[] = [];
-
-    for (let i = 0; i < 30; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      next30.push(date);
-    }
-
-    const events = habits.flatMap((habit) =>
-      next30
-        .filter((date) => this.isHabitScheduledForDay(habit, date))
-        .map((date) => {
-          const start = `${date.toISOString().split('T')[0].replace(/-/g, '')}T${(habit.reminderTime ?? '0900').replace(':', '')}00`;
-          const uid = `${habit.id}-${date.toISOString().split('T')[0]}@habit-tracker`;
-          return [
-            'BEGIN:VEVENT',
-            `UID:${uid}`,
-            `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
-            `DTSTART:${start}`,
-            `SUMMARY:${habit.name}`,
-            `DESCRIPTION:Habit target ${habit.targetValue} ${habit.unit}`,
-            'END:VEVENT'
-          ].join('\n');
-        })
-    );
-
-    const ics = [
-      'BEGIN:VCALENDAR',
-      'VERSION:2.0',
-      'PRODID:-//Habit Tracker//EN',
-      ...events,
-      'END:VCALENDAR'
-    ].join('\n');
-
-    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'habit-tracker-calendar.ics';
-    link.click();
-    URL.revokeObjectURL(url);
-
-    const status = this.integrationStatusSubject.value;
-    this.integrationStatusSubject.next({
-      ...status,
-      lastCalendarSyncAt: new Date().toISOString()
-    });
-    this.saveIntegrationsToStorage();
   }
 }
