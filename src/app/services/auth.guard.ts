@@ -12,3 +12,14 @@ export const authGuard: CanActivateFn = () => {
 
   return router.parseUrl('/login');
 };
+
+export const redirectIfLoggedInGuard: CanActivateFn = () => {
+  const userService = inject(UserService);
+  const router = inject(Router);
+
+  if (userService.getCurrentUser()) {
+    return router.parseUrl('/profile');
+  }
+
+  return true;
+};

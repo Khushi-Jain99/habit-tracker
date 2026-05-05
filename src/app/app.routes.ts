@@ -6,12 +6,13 @@ import { AnalyticsComponent } from './components/analytics/analytics.component';
 import { ProfileComponent } from './components/profile/profile.component';
 import { LoginComponent } from './components/auth/login/login.component';
 import { SignupComponent } from './components/auth/signup/signup.component';
-import { authGuard } from './services/auth.guard';
+import { authGuard, redirectIfLoggedInGuard } from './services/auth.guard';
 
 export const routes: Routes = [
-	{ path: '', component: DashboardComponent },
+	{ path: '', redirectTo: 'signup', pathMatch: 'full' },
+	{ path: 'dashboard', component: DashboardComponent },
 	{ path: 'login', component: LoginComponent },
-	{ path: 'signup', component: SignupComponent },
+	{ path: 'signup', component: SignupComponent, canActivate: [redirectIfLoggedInGuard] },
 	{ path: 'habits', component: HabitsComponent },
 	{ path: 'add-habit', component: AddHabitComponent },
 	{ path: 'analytics', component: AnalyticsComponent },
