@@ -14,7 +14,7 @@ type FilterFrequency = 'all' | 'daily' | 'weekly' | 'custom';
 @Component({
   selector: 'app-habits',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule, HabitDialogComponent, ProgressRingComponent],
+  imports: [CommonModule, FormsModule, MatDialogModule, ProgressRingComponent],
   templateUrl: './habits.component.html',
   styleUrls: ['./habits.component.scss']
 })

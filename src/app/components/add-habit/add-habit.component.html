@@ -14,8 +14,8 @@
           {{ icon }}
         </div>
         <div class="flex-1 space-y-1">
-          <label class="text-xs font-bold text-muted uppercase tracking-wider">Habit Name</label>
-          <input [(ngModel)]="name" name="name" type="text" placeholder="e.g. Morning Run"
+          <label for="add-habit-name" class="text-xs font-bold text-muted uppercase tracking-wider">Habit Name</label>
+          <input id="add-habit-name" [(ngModel)]="name" name="name" type="text" placeholder="e.g. Morning Run"
                  class="w-full bg-transparent text-xl font-bold text-ink border-b-2 border-surface-muted focus:border-primary-500 outline-none transition-colors py-2">
         </div>
       </div>
@@ -50,8 +50,8 @@
       </div>
 
       <div class="bg-surface p-6 rounded-3xl border border-line shadow-sm space-y-4">
-        <label class="text-xs font-bold text-muted uppercase tracking-wider">Category (Tag)</label>
-        <select [(ngModel)]="category" name="category"
+        <label for="add-habit-category" class="text-xs font-bold text-muted uppercase tracking-wider">Category (Tag)</label>
+        <select id="add-habit-category" [(ngModel)]="category" name="category"
                 class="w-full bg-surface-muted p-3 rounded-xl font-bold text-ink outline-none border border-transparent focus:border-primary-500 transition-colors">
           <option *ngFor="let c of categories" [ngValue]="c">{{ c }}</option>
         </select>
@@ -71,15 +71,15 @@
     <div class="bg-surface p-6 rounded-3xl border border-line shadow-sm space-y-6">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div class="space-y-2">
-          <label class="text-xs font-bold text-muted uppercase tracking-wider">Goal (Target)</label>
+          <label for="add-habit-target" class="text-xs font-bold text-muted uppercase tracking-wider">Goal (Target)</label>
           <div class="flex items-center gap-3">
-            <input [(ngModel)]="targetValue" name="targetValue" type="number" class="w-20 bg-surface-muted p-3 rounded-xl text-center font-bold text-ink outline-none">
-            <input [(ngModel)]="unit" name="unit" type="text" placeholder="unit" class="flex-1 bg-surface-muted p-3 rounded-xl font-bold text-ink outline-none">
+            <input id="add-habit-target" [(ngModel)]="targetValue" name="targetValue" type="number" class="w-20 bg-surface-muted p-3 rounded-xl text-center font-bold text-ink outline-none">
+            <input [(ngModel)]="unit" name="unit" type="text" placeholder="unit" aria-label="Unit" class="flex-1 bg-surface-muted p-3 rounded-xl font-bold text-ink outline-none">
           </div>
         </div>
         <div class="space-y-2">
-          <label class="text-xs font-bold text-muted uppercase tracking-wider">Reminder Time</label>
-          <input [(ngModel)]="reminderTime" name="reminderTime" type="time" class="w-full bg-surface-muted p-3 rounded-xl font-bold text-ink outline-none">
+          <label for="add-habit-reminder" class="text-xs font-bold text-muted uppercase tracking-wider">Reminder Time</label>
+          <input id="add-habit-reminder" [(ngModel)]="reminderTime" name="reminderTime" type="time" class="w-full bg-surface-muted p-3 rounded-xl font-bold text-ink outline-none">
         </div>
       </div>
 

@@ -20,7 +20,7 @@ interface PointsPopup {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, ProgressRingComponent, MatDialogModule, HabitDialogComponent],
+  imports: [CommonModule, ProgressRingComponent, MatDialogModule],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })

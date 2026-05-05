@@ -20,8 +20,9 @@
 
     <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
       <div class="md:col-span-1">
-        <label class="text-xs font-bold text-muted uppercase tracking-wider">Search</label>
+        <label for="habits-search" class="text-xs font-bold text-muted uppercase tracking-wider">Search</label>
         <input
+          id="habits-search"
           [(ngModel)]="searchQuery"
           name="searchQuery"
           type="text"
@@ -56,8 +57,9 @@
       </div>
 
       <div>
-        <label class="text-xs font-bold text-muted uppercase tracking-wider">Category</label>
+        <label for="habits-category" class="text-xs font-bold text-muted uppercase tracking-wider">Category</label>
         <select
+          id="habits-category"
           [(ngModel)]="filterCategory"
           name="filterCategory"
           class="w-full bg-surface-muted p-3 rounded-xl font-bold text-ink outline-none border border-transparent focus:border-primary-500 transition-colors mt-2">
