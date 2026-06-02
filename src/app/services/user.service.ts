@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { Habit } from '../models/habit.model';
-import { UserGamificationState, UserRecord, UserStats } from '../models/user.model';
+import { UserGamificationState, UserHeatmapCell, UserProfile, UserRecord, UserStats } from '../models/user.model';
 
 interface UserStorageStateV1 {
   version: 1;
@@ -52,11 +52,18 @@ export class UserService {
 
   createUser(name: string, email: string, password?: string, habits: Habit[] = []): UserRecord {
     const now = new Date().toISOString();
+    const profile: UserProfile = {
+      avatarUrl: '',
+      bio: '',
+      timezone: this.getTimezone(),
+      locale: this.getLocale()
+    };
     const newUser: UserRecord = {
       id: this.generateId(),
       name: name.trim(),
       email: email.trim().toLowerCase(),
       password,
+      profile,
       habits,
       stats: {
         xp: 0,
@@ -66,6 +73,7 @@ export class UserService {
       gamification: {
         earnedBadges: {}
       },
+      heatmap: [],
       createdAt: now,
       updatedAt: now
     };
@@ -99,13 +107,17 @@ export class UserService {
     habits?: Habit[];
     stats?: UserStats;
     gamification?: UserGamificationState;
+    heatmap?: UserHeatmapCell[];
+    profile?: UserProfile;
   }): void {
     const current = this.currentUserSubject.value;
     if (!current) return;
     this.updateUser(current.id, {
       habits: payload.habits ?? current.habits,
       stats: payload.stats ?? current.stats,
-      gamification: payload.gamification ?? current.gamification
+      gamification: payload.gamification ?? current.gamification,
+      heatmap: payload.heatmap ?? current.heatmap,
+      profile: payload.profile ?? current.profile
     });
   }
 
@@ -137,10 +149,33 @@ export class UserService {
       const raw = localStorage.getItem(this.USERS_KEY);
       if (!raw) return [];
       const parsed = JSON.parse(raw) as UserStorageStateV1;
-      return parsed.users ?? [];
+      const users = parsed.users ?? [];
+      return users.map((user) => this.normalizeUser(user));
     } catch {
       return [];
     }
+  }
+
+  private normalizeUser(user: UserRecord): UserRecord {
+    const now = new Date().toISOString();
+    return {
+      id: user.id ?? this.generateId(),
+      name: user.name ?? 'User',
+      email: user.email ?? '',
+      password: user.password,
+      profile: user.profile ?? {
+        avatarUrl: '',
+        bio: '',
+        timezone: this.getTimezone(),
+        locale: this.getLocale()
+      },
+      habits: Array.isArray(user.habits) ? user.habits : [],
+      stats: user.stats ?? { xp: 0, level: 0, streak: 0 },
+      gamification: user.gamification ?? { earnedBadges: {} },
+      heatmap: Array.isArray(user.heatmap) ? user.heatmap : [],
+      createdAt: user.createdAt ?? now,
+      updatedAt: user.updatedAt ?? now
+    };
   }
 
   private bootstrapLegacyUser(): void {
@@ -200,5 +235,20 @@ export class UserService {
       return crypto.randomUUID();
     }
     return `user_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  }
+
+  private getTimezone(): string {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC';
+    } catch {
+      return 'UTC';
+    }
+  }
+
+  private getLocale(): string {
+    if (typeof navigator !== 'undefined' && navigator.language) {
+      return navigator.language;
+    }
+    return 'en';
   }
 }

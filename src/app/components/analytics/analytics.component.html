@@ -100,16 +100,20 @@
       </div>
 
       <div class="mt-4 flex gap-4 items-start">
-        <div class="hidden sm:flex flex-col justify-between h-[245px] text-[11px] text-muted">
-          <div>Mon</div>
-          <div>Wed</div>
-          <div>Fri</div>
-          <div>Sun</div>
+        <div class="hidden sm:grid grid-rows-7 gap-y-2 text-[11px] text-muted leading-none">
+          <div class="h-3 flex items-center">Mon</div>
+          <div class="h-3 flex items-center">Tue</div>
+          <div class="h-3 flex items-center">Wed</div>
+          <div class="h-3 flex items-center">Thu</div>
+          <div class="h-3 flex items-center">Fri</div>
+          <div class="h-3 flex items-center">Sat</div>
+          <div class="h-3 flex items-center">Sun</div>
         </div>
 
         <div
-          class="grid gap-1"
+          class="grid gap-x-1 gap-y-2"
           [style.gridTemplateColumns]="'repeat(' + heatmapCols + ', minmax(0, 1fr))'"
+          [style.gridAutoRows]="'12px'"
         >
           <ng-container *ngFor="let col of heatmapColIndices">
             <ng-container *ngFor="let row of heatmapRowIndices">

@@ -118,7 +118,7 @@ export class AddHabitComponent implements AfterViewInit {
       category: this.category
     });
 
-    this.router.navigateByUrl('/');
+    this.router.navigateByUrl('/dashboard');
   }
 
   back(event: MouseEvent): void {
@@ -126,7 +126,7 @@ export class AddHabitComponent implements AfterViewInit {
     if (button) {
       animatePress(button);
     }
-    this.router.navigateByUrl('/');
+    this.router.navigateByUrl('/dashboard');
   }
 
   isValid(): boolean {

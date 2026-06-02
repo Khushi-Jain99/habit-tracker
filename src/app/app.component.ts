@@ -26,7 +26,7 @@ import { NotificationService } from './services/notification.service';
 
             <nav class="flex-1 space-y-2">
               <a
-                routerLink="/"
+                routerLink="/dashboard"
                 [routerLinkActiveOptions]="{ exact: true }"
                 routerLinkActive="!bg-primary-600 !text-white !border-primary-600"
                 class="block px-4 py-3 rounded-2xl text-sm font-bold text-ink/80 bg-surface/70 border border-line/70 hover:bg-surface transition-all shadow-sm"

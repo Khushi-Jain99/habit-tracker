@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { Subscription } from 'rxjs';
+import { Router } from '@angular/router';
 import { HabitService } from '../../services/habit.service';
 import { Habit, HabitProgress, GamificationStats } from '../../models/habit.model';
 import { HabitDialogComponent } from '../habit-dialog/habit-dialog.component';
@@ -34,7 +35,8 @@ export class HabitsComponent implements OnInit, OnDestroy {
 
   constructor(
     private habitService: HabitService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private router: Router
   ) {}
 
   ngOnInit(): void {
@@ -150,7 +152,7 @@ export class HabitsComponent implements OnInit, OnDestroy {
 
   openAddHabit(): void {
     // Keep UX consistent: add happens on its own route.
-    window.location.href = '/add-habit';
+    this.router.navigateByUrl('/add-habit');
   }
 
   trackHabit(_: number, habit: Habit): string {

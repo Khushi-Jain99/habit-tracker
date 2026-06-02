@@ -6,6 +6,20 @@ export interface UserStats {
   streak: number;
 }
 
+export interface UserProfile {
+  avatarUrl?: string;
+  bio?: string;
+  timezone?: string;
+  locale?: string;
+}
+
+export interface UserHeatmapCell {
+  dateKey: string;
+  completionRate: number | null;
+  dueCount: number;
+  completedCount: number;
+}
+
 export interface UserGamificationState {
   earnedBadges: Record<string, Badge>;
 }
@@ -15,9 +29,11 @@ export interface UserRecord {
   name: string;
   email: string;
   password?: string;
+  profile: UserProfile;
   habits: Habit[];
   stats: UserStats;
   gamification?: UserGamificationState;
+  heatmap?: UserHeatmapCell[];
   createdAt: string;
   updatedAt: string;
 }

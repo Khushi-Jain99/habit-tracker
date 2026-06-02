@@ -135,9 +135,7 @@ export class AnalyticsComponent implements OnInit {
 
     this.insights = this.habitService.getWeekendMissInsight();
 
-    this.heatmapCells = this.habitService.getActivityHeatmapData(52);
-    this.heatmapCols = Math.ceil(this.heatmapCells.length / this.heatmapRows);
-    this.heatmapColIndices = Array.from({ length: this.heatmapCols }, (_, i) => i);
+    this.buildHeatmap(52);
 
     this.buildConsistencyChart();
   }
@@ -190,8 +188,49 @@ export class AnalyticsComponent implements OnInit {
 
   getHeatmapTitle(row: number, col: number): string {
     const cell = this.getHeatmapCell(row, col);
-    if (!cell || cell.dueCount === 0) return 'No habits due';
+    const idx = col * this.heatmapRows + row;
+    const raw = this.heatmapCells[idx];
+    if (!cell || !raw || !raw.dateKey) return '';
+    if (cell.dueCount === 0) return 'No habits due';
     return `${cell.completionRate ?? 0}% of due habits completed`;
+  }
+
+  private buildHeatmap(weeks: number): void {
+    const raw = this.habitService.getActivityHeatmapData(weeks);
+    if (raw.length === 0) {
+      this.heatmapCells = [];
+      this.heatmapCols = 0;
+      this.heatmapColIndices = [];
+      return;
+    }
+
+    const firstDate = parseDateKey(raw[0].dateKey);
+    const firstWeekdayIndex = this.getMondayIndex(firstDate.getDay());
+    const paddingStart = Array.from({ length: firstWeekdayIndex }, () => ({
+      dateKey: '',
+      completionRate: null,
+      dueCount: 0
+    }));
+
+    const padded = [...paddingStart, ...raw];
+    const remainder = padded.length % this.heatmapRows;
+    if (remainder !== 0) {
+      const paddingEnd = Array.from({ length: this.heatmapRows - remainder }, () => ({
+        dateKey: '',
+        completionRate: null,
+        dueCount: 0
+      }));
+      padded.push(...paddingEnd);
+    }
+
+    this.heatmapCells = padded;
+    this.heatmapCols = Math.ceil(this.heatmapCells.length / this.heatmapRows);
+    this.heatmapColIndices = Array.from({ length: this.heatmapCols }, (_, i) => i);
+  }
+
+  private getMondayIndex(day: number): number {
+    // Convert JS Sunday=0..Saturday=6 to Monday=0..Sunday=6.
+    return (day + 6) % 7;
   }
 }
 

@@ -104,7 +104,8 @@ export class HabitService implements OnDestroy {
       },
       gamification: {
         earnedBadges: this.earnedBadges
-      }
+      },
+      heatmap: this.getActivityHeatmapData(52)
     });
   }
 
@@ -432,8 +433,8 @@ export class HabitService implements OnDestroy {
     return stats;
   }
 
-  getActivityHeatmapData(weeks = 52): { dateKey: string; completionRate: number | null; dueCount: number }[] {
-    const results: { dateKey: string; completionRate: number | null; dueCount: number }[] = [];
+  getActivityHeatmapData(weeks = 52): { dateKey: string; completionRate: number | null; dueCount: number; completedCount: number }[] {
+    const results: { dateKey: string; completionRate: number | null; dueCount: number; completedCount: number }[] = [];
     const now = new Date();
     const start = new Date(now);
     start.setDate(now.getDate() - weeks * 7 + 1);
@@ -444,6 +445,7 @@ export class HabitService implements OnDestroy {
         dateKey: this.toDateKey(d),
         completionRate: due === 0 ? null : percent,
         dueCount: due,
+        completedCount: completed
       });
     }
 
